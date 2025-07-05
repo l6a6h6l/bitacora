@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, Users, Download, Filter, Activity, LogOut, Calendar } from 'lucide-react';
+import { Clock, Users, Download, Filter, Activity, LogOut } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../firebase/config';
 import { collection, query, onSnapshot, orderBy, where } from 'firebase/firestore';
