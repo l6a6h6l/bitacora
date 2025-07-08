@@ -10,6 +10,30 @@ function Login() {
   const [error, setError] = useState('');
   const [cargando, setCargando] = useState(false);
 
+  // Lista de correos administradores
+  const correosAdmin = [
+    'admin@empresa.com',
+    'sergio.hernandez@fractalia.es',
+    'antonioj.macias@fractalia.es',
+    'luis.herrera@fractaliasystems.es'
+  ];
+
+  const esAdministrador = (email) => {
+    return correosAdmin.includes(email.toLowerCase());
+  };
+
+  const obtenerNombreUsuario = (email) => {
+    // Nombres personalizados para administradores
+    const nombresAdmin = {
+      'sergio.hernandez@fractalia.es': 'Sergio Hernández',
+      'antonioj.macias@fractalia.es': 'Antonio Macías',
+      'luis.herrera@fractaliasystems.es': 'Luis Herrera',
+      'admin@empresa.com': 'Administrador'
+    };
+    
+    return nombresAdmin[email.toLowerCase()] || email.split('@')[0];
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -21,8 +45,8 @@ function Login() {
         
         await setDoc(doc(db, 'usuarios', userCredential.user.uid), {
           email: email,
-          nombre: email.split('@')[0],
-          rol: email === 'admin@empresa.com' ? 'administrador' : 'operador',
+          nombre: obtenerNombreUsuario(email),
+          rol: esAdministrador(email) ? 'administrador' : 'operador',
           fechaCreacion: new Date(),
           activo: true
         });
@@ -89,6 +113,18 @@ function Login() {
             {esRegistro ? 'Iniciar Sesión' : 'Registrarse'}
           </button>
         </p>
+        {esRegistro && (
+          <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+            <p className="text-xs text-blue-800 text-center">
+              <strong>Cuentas con acceso de administrador:</strong>
+            </p>
+            <ul className="text-xs text-blue-700 mt-2 space-y-1">
+              <li>• Sergio Hernández (sergio.hernandez@fractalia.es)</li>
+              <li>• Antonio Macías (antonioj.macias@fractalia.es)</li>
+              <li>• Luis Herrera (luis.herrera@fractaliasystems.es)</li>
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   );
