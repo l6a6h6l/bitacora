@@ -9,6 +9,30 @@ function App() {
   const [usuario, setUsuario] = useState(null);
   const [cargando, setCargando] = useState(true);
 
+  // Lista de correos administradores
+  const correosAdmin = [
+    'admin@empresa.com',
+    'sergio.hernandez@fractalia.es',
+    'antonioj.macias@fractalia.es',
+    'luis.herrera@fractaliasystems.es'
+  ];
+
+  const esAdministrador = (email) => {
+    return correosAdmin.includes(email.toLowerCase());
+  };
+
+  const obtenerNombreUsuario = (email) => {
+    // Nombres personalizados para administradores
+    const nombresAdmin = {
+      'sergio.hernandez@fractalia.es': 'Sergio Hernández',
+      'antonioj.macias@fractalia.es': 'Antonio Macías',
+      'luis.herrera@fractaliasystems.es': 'Luis Herrera',
+      'admin@empresa.com': 'Administrador'
+    };
+    
+    return nombresAdmin[email.toLowerCase()] || email.split('@')[0];
+  };
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
@@ -16,8 +40,8 @@ function App() {
         const userData = {
           uid: user.uid,
           email: user.email,
-          nombre: user.email.split('@')[0],
-          rol: user.email === 'admin@empresa.com' ? 'administrador' : 'operador'
+          nombre: obtenerNombreUsuario(user.email),
+          rol: esAdministrador(user.email) ? 'administrador' : 'operador'
         };
         setUsuario(userData);
       } else {
