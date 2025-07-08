@@ -23,7 +23,6 @@ function Login() {
   };
 
   const obtenerNombreUsuario = (email) => {
-    // Nombres personalizados para administradores
     const nombresAdmin = {
       'sergio.hernandez@fractalia.es': 'Sergio Hernández',
       'antonioj.macias@fractalia.es': 'Antonio Macías',
@@ -43,6 +42,7 @@ function Login() {
       if (esRegistro) {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         
+        // Guardar en Firestore con el rol correcto
         await setDoc(doc(db, 'usuarios', userCredential.user.uid), {
           email: email,
           nombre: obtenerNombreUsuario(email),
@@ -54,7 +54,15 @@ function Login() {
         await signInWithEmailAndPassword(auth, email, password);
       }
     } catch (error) {
-      setError(error.message);
+      if (error.code === 'auth/email-already-in-use') {
+        setError('Este correo ya está registrado');
+      } else if (error.code === 'auth/weak-password') {
+        setError('La contraseña debe tener al menos 6 caracteres');
+      } else if (error.code === 'auth/invalid-email') {
+        setError('Correo electrónico inválido');
+      } else {
+        setError('Error: ' + error.message);
+      }
     } finally {
       setCargando(false);
     }
@@ -66,7 +74,7 @@ function Login() {
         <h1 className="text-2xl font-bold mb-6 text-center">
           {esRegistro ? 'Registro' : 'Iniciar Sesión'}
         </h1>
-        <form onSubmit={handleSubmit}>
+        <div>
           <div className="mb-4">
             <label className="block text-gray-700 text-sm font-bold mb-2">
               Email
@@ -97,13 +105,13 @@ function Login() {
             <div className="mb-4 text-red-500 text-sm">{error}</div>
           )}
           <button
-            type="submit"
+            onClick={handleSubmit}
             disabled={cargando}
             className="w-full bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition duration-200 disabled:opacity-50"
           >
             {cargando ? 'Cargando...' : esRegistro ? 'Registrarse' : 'Iniciar Sesión'}
           </button>
-        </form>
+        </div>
         <p className="mt-4 text-center text-sm">
           {esRegistro ? '¿Ya tienes cuenta?' : '¿No tienes cuenta?'}
           <button
@@ -119,9 +127,10 @@ function Login() {
               <strong>Cuentas con acceso de administrador:</strong>
             </p>
             <ul className="text-xs text-blue-700 mt-2 space-y-1">
-              <li>• Sergio Hernández (sergio.hernandez@fractalia.es)</li>
-              <li>• Antonio Macías (antonioj.macias@fractalia.es)</li>
-              <li>• Luis Herrera (luis.herrera@fractaliasystems.es)</li>
+              <li>• admin@empresa.com</li>
+              <li>• sergio.hernandez@fractalia.es</li>
+              <li>• antonioj.macias@fractalia.es</li>
+              <li>• luis.herrera@fractaliasystems.es</li>
             </ul>
           </div>
         )}
