@@ -14,20 +14,20 @@ function App() {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
-          // IMPORTANTE: Leer datos del usuario desde Firestore
+          // SIEMPRE leer de Firestore
           const userDoc = await getDoc(doc(db, 'usuarios', user.uid));
           
           if (userDoc.exists()) {
             const userData = userDoc.data();
             setUsuario({
               uid: user.uid,
-              email: user.email,
+              email: userData.email,
               nombre: userData.nombre,
-              rol: userData.rol // <-- Lee el rol desde la base de datos
+              rol: userData.rol // <-- Este es el rol que viene de Firestore
             });
           }
         } catch (error) {
-          console.error('Error obteniendo datos del usuario:', error);
+          console.error('Error al obtener usuario:', error);
         }
       } else {
         setUsuario(null);
@@ -50,6 +50,7 @@ function App() {
     return <Login />;
   }
 
+  // Mostrar panel según el rol de Firestore
   return usuario.rol === 'administrador' ? 
     <DashboardAdmin usuario={usuario} /> : 
     <DashboardOperador usuario={usuario} />;
