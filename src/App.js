@@ -14,8 +14,9 @@ function App() {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
-          // SIEMPRE leer de Firestore
-          const userDoc = await getDoc(doc(db, 'usuarios', user.uid));
+          // Leer datos del usuario desde Firestore
+          const userDocRef = doc(db, 'usuarios', user.uid);
+          const userDoc = await getDoc(userDocRef);
           
           if (userDoc.exists()) {
             const userData = userDoc.data();
@@ -23,11 +24,16 @@ function App() {
               uid: user.uid,
               email: userData.email,
               nombre: userData.nombre,
-              rol: userData.rol // <-- Este es el rol que viene de Firestore
+              rol: userData.rol
             });
+          } else {
+            // Si no existe el documento (no debería pasar), cerrar sesión
+            console.error('No se encontró el documento del usuario');
+            setUsuario(null);
           }
         } catch (error) {
-          console.error('Error al obtener usuario:', error);
+          console.error('Error al obtener datos del usuario:', error);
+          setUsuario(null);
         }
       } else {
         setUsuario(null);
@@ -50,7 +56,6 @@ function App() {
     return <Login />;
   }
 
-  // Mostrar panel según el rol de Firestore
   return usuario.rol === 'administrador' ? 
     <DashboardAdmin usuario={usuario} /> : 
     <DashboardOperador usuario={usuario} />;
