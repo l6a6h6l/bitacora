@@ -4,6 +4,19 @@ import { signOut } from 'firebase/auth';
 import { auth, db } from '../firebase/config';
 import { collection, addDoc, query, where, onSnapshot, updateDoc, doc, orderBy } from 'firebase/firestore';
 
+
+// Función para obtener nombre formal
+const obtenerNombreFormal = () => {
+  const nombresFormales = {
+    'sergio.hernandez@fractalia.es': 'Sergio Hernández',
+    'antonioj.macias@fractalia.es': 'Antonio Macías',
+    'luis.herrera@fractaliasystems.es': 'Luis Herrera'
+  };
+  
+  return nombresFormales[usuario.email.toLowerCase()] || usuario.nombre;
+};
+
+
 function DashboardOperador({ usuario }) {
   const [actividadActual, setActividadActual] = useState(null);
   const [actividadesPredefinidas, setActividadesPredefinidas] = useState([]);
