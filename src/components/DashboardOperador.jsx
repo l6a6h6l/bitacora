@@ -481,7 +481,7 @@ function DashboardOperador({ usuario }) {
                 </button>
               </div>
 
-              {/* Lista de Pendientes (este es el bloque que puede haber estado duplicado) */}
+              {/* Lista de Pendientes (este es el bloque que ya existía y el otro era una copia) */}
               {pendientesParaSiguienteTurno.length > 0 && (
                 <div className="mb-6">
                   <h3 className="text-lg font-semibold mb-2">Pendientes para Siguiente Turno</h3>
@@ -494,27 +494,7 @@ function DashboardOperador({ usuario }) {
                   </div>
                 </div>
               )}
-
-              {/* Pendientes marcados (parece que este es el bloque que estaba duplicado al final del archivo) */}
-              {pendientesParaSiguienteTurno.length > 0 && (
-                <div className="bg-orange-50 rounded-lg shadow-md p-4">
-                  <h3 className="font-semibold mb-2 text-orange-800">Pendientes marcados:</h3>
-                  <ul className="text-sm space-y-1">
-                    {pendientesParaSiguienteTurno.map((pendiente, idx) => (
-                      <li key={idx} className="flex justify-between items-center">
-                        <span>• {pendiente}</span>
-                        <button
-                          onClick={() => quitarDePendientes(pendiente)}
-                          className="text-red-500 hover:text-red-700 text-xs"
-                        >
-                          Quitar
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
+              
               <div className="flex justify-end gap-2">
                 <button
                   onClick={() => setMostrarReporte(false)}
@@ -699,9 +679,8 @@ Total tiempo trabajado: ${registrosHoy.reduce((acc, act) => acc + (act.duracionM
                 </div>
               )}
 
-              {/* Asegúrate de que este bloque de "Pendientes marcados" esté aquí y no al final del archivo */}
               {pendientesParaSiguienteTurno.length > 0 && (
-                 <div className="mb-6"> {/* Agregué un div contenedor para mantener la estructura y un mb-6 para espaciado */}
+                 <div className="mb-6">
                   <h3 className="text-lg font-semibold mb-2">Pendientes marcados:</h3>
                   <div className="bg-orange-50 p-4 rounded">
                     <ul className="text-sm space-y-1">
@@ -720,11 +699,11 @@ Total tiempo trabajado: ${registrosHoy.reduce((acc, act) => acc + (act.duracionM
                   </div>
                 </div>
               )}
-            </div> {/* Cierre del div.bg-white (Modal de Reporte) */}
-          </div> {/* Cierre del div.fixed (Modal de Reporte) */}
-        )} {/* Cierre del {mostrarReporte && (...)} */}
-      </div> {/* Cierre del div.max-w-6xl (contenido principal) */}
-    </div> // Cierre del div.min-h-screen (contenedor principal)
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
