@@ -409,6 +409,7 @@ function DashboardOperador({ usuario }) {
                       onChange={(e) => setNuevaActividad(e.target.value)}
                       placeholder="Nombre de la actividad..."
                       className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      autoFocus
                     />
                     <button
                       onClick={() => {
@@ -480,7 +481,7 @@ function DashboardOperador({ usuario }) {
                 </button>
               </div>
 
-              {/* Lista de Pendientes */}
+              {/* Lista de Pendientes (este es el bloque que puede haber estado duplicado) */}
               {pendientesParaSiguienteTurno.length > 0 && (
                 <div className="mb-6">
                   <h3 className="text-lg font-semibold mb-2">Pendientes para Siguiente Turno</h3>
@@ -491,6 +492,26 @@ function DashboardOperador({ usuario }) {
                       ))}
                     </ul>
                   </div>
+                </div>
+              )}
+
+              {/* Pendientes marcados (parece que este es el bloque que estaba duplicado al final del archivo) */}
+              {pendientesParaSiguienteTurno.length > 0 && (
+                <div className="bg-orange-50 rounded-lg shadow-md p-4">
+                  <h3 className="font-semibold mb-2 text-orange-800">Pendientes marcados:</h3>
+                  <ul className="text-sm space-y-1">
+                    {pendientesParaSiguienteTurno.map((pendiente, idx) => (
+                      <li key={idx} className="flex justify-between items-center">
+                        <span>• {pendiente}</span>
+                        <button
+                          onClick={() => quitarDePendientes(pendiente)}
+                          className="text-red-500 hover:text-red-700 text-xs"
+                        >
+                          Quitar
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
 
@@ -537,10 +558,174 @@ Total tiempo trabajado: ${registrosHoy.reduce((acc, act) => acc + (act.duracionM
             </div>
           </div>
         )}
-      </div>
-    </div>
+
+        {/* Historial del Día */}
+        {turnoSeleccionado && (
+          <div className="mt-6 bg-white rounded-lg shadow-md p-6">
+            <h2 className="text-xl font-semibold mb-4">Actividades Realizadas Hoy</h2>
+            
+            {registrosHoy.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">No hay actividades registradas hoy</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2 px-4">Actividad</th>
+                      <th className="text-left py-2 px-4">Turno</th>
+                      <th className="text-left py-2 px-4">Inicio</th>
+                      <th className="text-left py-2 px-4">Fin</th>
+                      <th className="text-left py-2 px-4">Duración</th>
+                      <th className="text-left py-2 px-4">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {registrosHoy.map(registro => (
+                      <tr key={registro.id} className="border-b hover:bg-gray-50">
+                        <td className="py-2 px-4">{registro.actividadNombre}</td>
+                        <td className="py-2 px-4">
+                          <span className="text-sm text-gray-600">
+                            {registro.turno ? actividadesPorTurno[registro.turno]?.nombre : '-'}
+                          </span>
+                        </td>
+                        <td className="py-2 px-4">{formatearHora(registro.horaInicio)}</td>
+                        <td className="py-2 px-4">{registro.horaFin ? formatearHora(registro.horaFin) : '-'}</td>
+                        <td className="py-2 px-4">{registro.duracionMinutos || '-'} min</td>
+                        <td className="py-2 px-4">
+                          <span className={`px-2 py-1 rounded text-xs ${
+                            registro.estado === 'completada' 
+                              ? 'bg-green-100 text-green-800' 
+                              : registro.estado === 'pausada'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-blue-100 text-blue-800'
+                          }`}>
+                            {registro.estado}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Modal de Solicitud */}
+        {mostrarFormularioSolicitud && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
+              <h3 className="text-lg font-semibold mb-4">Solicitud {mostrarFormularioSolicitud}</h3>
+              <textarea
+                value={descripcionSolicitud}
+                onChange={(e) => setDescripcionSolicitud(e.target.value)}
+                placeholder="Describe brevemente la solicitud..."
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 h-32"
+                autoFocus
+              />
+              <div className="flex justify-end gap-2 mt-4">
+                <button
+                  onClick={() => {
+                    setMostrarFormularioSolicitud(null);
+                    setDescripcionSolicitud('');
+                  }}
+                  className="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg transition duration-200"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmarSolicitud}
+                  disabled={!descripcionSolicitud.trim()}
+                  className="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition duration-200 disabled:opacity-50"
+                >
+                  Iniciar Solicitud
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de Reporte */}
+        {mostrarReporte && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+              <h2 className="text-2xl font-bold mb-4">Reporte de Turno</h2>
+              
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold mb-2">Información del Turno</h3>
+                <div className="bg-gray-50 p-4 rounded">
+                  <p><strong>Operador:</strong> {obtenerNombreFormal()}</p>
+                  <p><strong>Turno:</strong> {actividadesPorTurno[turnoSeleccionado]?.nombre} ({actividadesPorTurno[turnoSeleccionado]?.horario})</p>
+                  <p><strong>Fecha:</strong> {new Date().toLocaleDateString('es-ES')}</p>
+                  <p><strong>Hora del reporte:</strong> {formatearHora(new Date())}</p>
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold mb-2">Actividades Completadas</h3>
+                <div className="border rounded">
+                  <table className="w-full">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="text-left p-2 border-b">Actividad</th>
+                        <th className="text-left p-2 border-b">Duración</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {registrosHoy.filter(r => r.estado === 'completada' && r.turno === turnoSeleccionado).map((registro, idx) => (
+                        <tr key={idx} className="border-b">
+                          <td className="p-2">{registro.actividadNombre}</td>
+                          <td className="p-2">{registro.duracionMinutos} min</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {actividadesActivas.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold mb-2">Actividades en Curso</h3>
+                  <div className="bg-blue-50 p-4 rounded">
+                    <ul className="list-disc list-inside">
+                      {actividadesActivas.map((actividad, idx) => (
+                        <li key={idx}>
+                          {actividad.actividadNombre} 
+                          {actividad.estado === 'pausada' && ' (PAUSADA)'}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+
+              {/* Asegúrate de que este bloque de "Pendientes marcados" esté aquí y no al final del archivo */}
+              {pendientesParaSiguienteTurno.length > 0 && (
+                 <div className="mb-6"> {/* Agregué un div contenedor para mantener la estructura y un mb-6 para espaciado */}
+                  <h3 className="text-lg font-semibold mb-2">Pendientes marcados:</h3>
+                  <div className="bg-orange-50 p-4 rounded">
+                    <ul className="text-sm space-y-1">
+                      {pendientesParaSiguienteTurno.map((pendiente, idx) => (
+                        <li key={idx} className="flex justify-between items-center">
+                          <span>• {pendiente}</span>
+                          <button
+                            onClick={() => quitarDePendientes(pendiente)}
+                            className="text-red-500 hover:text-red-700 text-xs"
+                          >
+                            Quitar
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+            </div> {/* Cierre del div.bg-white (Modal de Reporte) */}
+          </div> {/* Cierre del div.fixed (Modal de Reporte) */}
+        )} {/* Cierre del {mostrarReporte && (...)} */}
+      </div> {/* Cierre del div.max-w-6xl (contenido principal) */}
+    </div> // Cierre del div.min-h-screen (contenedor principal)
   );
 }
 
 export default DashboardOperador;
-              
