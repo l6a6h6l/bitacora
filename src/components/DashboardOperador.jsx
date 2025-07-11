@@ -1,46 +1,4 @@
-{/* Modal de Validación */}
-        {mostrarFormularioValidacion && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
-              <h3 className="text-lg font-semibold mb-4">{mostrarFormularioValidacion}</h3>
-              <textarea
-                value={descripcionValidacion}
-                onChange={(e) => setDescripcionValidacion(e.target.value)}
-                placeholder="Describe brevemente la validación realizada..."
-                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 h-32"
-                autoFocus
-              />
-              <div className="flex justify-end gap-2 mt-4">
-                <button
-                  onClick={() => {
-                    setMostrarFormularioValidacion(null);
-                    setDescripcionValidacion('');
-                  }}
-                  className="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg transition duration-200"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={confirmarValidacion}
-                  disabled={!descripcionValidacion.trim()}
-                  className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg transition duration-200 disabled:opacity-50"
-                >
-                  Iniciar Validación
-                </button>
-              </div>
-            </div>
-          </div>
-        )}  const iniciarValidacion = (tipo) => {
-    setMostrarFormularioValidacion(tipo);
-  };
-
-  const confirmarValidacion = () => {
-    if (descripcionValidacion.trim()) {
-      iniciarActividad(`#${mostrarFormularioValidacion}#: ${descripcionValidacion}`);
-      setDescripcionValidacion('');
-      setMostrarFormularioValidacion(null);
-    }
-  };import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Clock, Play, Square, Plus, Activity, LogOut, Calendar, Moon, Sun, Sunset, Check, FileText, AlertCircle, Pause, PlayCircle, Send } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../firebase/config';
@@ -60,18 +18,6 @@ function DashboardOperador({ usuario }) {
   const [actividadPersonalizadaPendiente, setActividadPersonalizadaPendiente] = useState(false);
   const [tituloActividad, setTituloActividad] = useState('');
   const [descripcionActividad, setDescripcionActividad] = useState('');
-
-  // Validaciones comunes predefinidas
-  const validacionesComunes = [
-    'Reportar agente offline',
-    'Alerta dynatrace',
-    'Ping fail',
-    'Registro incidente',
-    'Registro evento',
-    'Registro actividad programada',
-    'Registro standines diario'
-  ];
-
   const [mostrarFormularioValidacion, setMostrarFormularioValidacion] = useState(null);
   const [descripcionValidacion, setDescripcionValidacion] = useState('');
 
@@ -127,6 +73,17 @@ function DashboardOperador({ usuario }) {
   const actividadesRecurrentes = [
     'Mensajes pendientes respuesta cao',
     'Mensajes pendientes respuesta ges'
+  ];
+
+  // Validaciones comunes predefinidas
+  const validacionesComunes = [
+    'Reportar agente offline',
+    'Alerta dynatrace',
+    'Ping fail',
+    'Registro incidente',
+    'Registro evento',
+    'Registro actividad programada',
+    'Registro standines diario'
   ];
 
   // Función para obtener nombre formal
@@ -200,6 +157,8 @@ function DashboardOperador({ usuario }) {
       
       setMostrarNueva(false);
       setNuevaActividad('');
+      setTituloActividad('');
+      setDescripcionActividad('');
       setActividadPersonalizadaPendiente(false);
     } catch (error) {
       console.error('Error al iniciar actividad:', error);
@@ -262,6 +221,18 @@ function DashboardOperador({ usuario }) {
       iniciarActividad(`Solicitud ${mostrarFormularioSolicitud}: ${descripcionSolicitud}`);
       setDescripcionSolicitud('');
       setMostrarFormularioSolicitud(null);
+    }
+  };
+
+  const iniciarValidacion = (tipo) => {
+    setMostrarFormularioValidacion(tipo);
+  };
+
+  const confirmarValidacion = () => {
+    if (descripcionValidacion.trim()) {
+      iniciarActividad(`#${mostrarFormularioValidacion}#: ${descripcionValidacion}`);
+      setDescripcionValidacion('');
+      setMostrarFormularioValidacion(null);
     }
   };
 
@@ -551,8 +522,6 @@ function DashboardOperador({ usuario }) {
                               ? `#${tituloActividad.trim()}#: ${descripcionActividad.trim()}`
                               : tituloActividad.trim();
                             iniciarActividad(actividadCompleta, actividadPersonalizadaPendiente);
-                            setTituloActividad('');
-                            setDescripcionActividad('');
                           }
                         }}
                         disabled={!tituloActividad.trim()}
@@ -727,6 +696,40 @@ function DashboardOperador({ usuario }) {
                   className="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition duration-200 disabled:opacity-50"
                 >
                   Iniciar Solicitud
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de Validación */}
+        {mostrarFormularioValidacion && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
+              <h3 className="text-lg font-semibold mb-4">{mostrarFormularioValidacion}</h3>
+              <textarea
+                value={descripcionValidacion}
+                onChange={(e) => setDescripcionValidacion(e.target.value)}
+                placeholder="Describe brevemente la validación realizada..."
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 h-32"
+                autoFocus
+              />
+              <div className="flex justify-end gap-2 mt-4">
+                <button
+                  onClick={() => {
+                    setMostrarFormularioValidacion(null);
+                    setDescripcionValidacion('');
+                  }}
+                  className="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg transition duration-200"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmarValidacion}
+                  disabled={!descripcionValidacion.trim()}
+                  className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg transition duration-200 disabled:opacity-50"
+                >
+                  Iniciar Validación
                 </button>
               </div>
             </div>
