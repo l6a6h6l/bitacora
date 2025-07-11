@@ -1,4 +1,46 @@
-import React, { useState, useEffect } from 'react';
+{/* Modal de Validación */}
+        {mostrarFormularioValidacion && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
+              <h3 className="text-lg font-semibold mb-4">{mostrarFormularioValidacion}</h3>
+              <textarea
+                value={descripcionValidacion}
+                onChange={(e) => setDescripcionValidacion(e.target.value)}
+                placeholder="Describe brevemente la validación realizada..."
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 h-32"
+                autoFocus
+              />
+              <div className="flex justify-end gap-2 mt-4">
+                <button
+                  onClick={() => {
+                    setMostrarFormularioValidacion(null);
+                    setDescripcionValidacion('');
+                  }}
+                  className="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg transition duration-200"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmarValidacion}
+                  disabled={!descripcionValidacion.trim()}
+                  className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg transition duration-200 disabled:opacity-50"
+                >
+                  Iniciar Validación
+                </button>
+              </div>
+            </div>
+          </div>
+        )}  const iniciarValidacion = (tipo) => {
+    setMostrarFormularioValidacion(tipo);
+  };
+
+  const confirmarValidacion = () => {
+    if (descripcionValidacion.trim()) {
+      iniciarActividad(`#${mostrarFormularioValidacion}#: ${descripcionValidacion}`);
+      setDescripcionValidacion('');
+      setMostrarFormularioValidacion(null);
+    }
+  };import React, { useState, useEffect } from 'react';
 import { Clock, Play, Square, Plus, Activity, LogOut, Calendar, Moon, Sun, Sunset, Check, FileText, AlertCircle, Pause, PlayCircle, Send } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../firebase/config';
@@ -16,6 +58,22 @@ function DashboardOperador({ usuario }) {
   const [mostrarFormularioSolicitud, setMostrarFormularioSolicitud] = useState(null);
   const [descripcionSolicitud, setDescripcionSolicitud] = useState('');
   const [actividadPersonalizadaPendiente, setActividadPersonalizadaPendiente] = useState(false);
+  const [tituloActividad, setTituloActividad] = useState('');
+  const [descripcionActividad, setDescripcionActividad] = useState('');
+
+  // Validaciones comunes predefinidas
+  const validacionesComunes = [
+    'Reportar agente offline',
+    'Alerta dynatrace',
+    'Ping fail',
+    'Registro incidente',
+    'Registro evento',
+    'Registro actividad programada',
+    'Registro standines diario'
+  ];
+
+  const [mostrarFormularioValidacion, setMostrarFormularioValidacion] = useState(null);
+  const [descripcionValidacion, setDescripcionValidacion] = useState('');
 
   // Definir actividades por turno
   const actividadesPorTurno = {
@@ -425,16 +483,53 @@ function DashboardOperador({ usuario }) {
                   })}
                 </div>
 
+                {/* Validaciones Comunes */}
+                <h3 className="font-semibold mb-3 mt-6">Validaciones comunes:</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-6">
+                  {validacionesComunes.map((validacion) => {
+                    const estaPendiente = pendientesParaSiguienteTurno.includes(validacion);
+                    
+                    return (
+                      <div key={validacion} className="flex gap-2">
+                        <button
+                          onClick={() => iniciarValidacion(validacion)}
+                          className="flex-1 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-4 py-2 rounded-lg text-left transition duration-200"
+                        >
+                          <Play size={16} className="inline mr-2" />
+                          {validacion}
+                        </button>
+                        <button
+                          onClick={() => estaPendiente ? quitarDePendientes(validacion) : marcarComoPendiente(validacion)}
+                          className={`px-3 py-2 rounded-lg transition duration-200 ${
+                            estaPendiente 
+                              ? 'bg-orange-500 hover:bg-orange-600 text-white' 
+                              : 'bg-orange-100 hover:bg-orange-200 text-orange-700'
+                          }`}
+                          title={estaPendiente ? "Quitar de pendientes" : "Marcar como pendiente para siguiente turno"}
+                        >
+                          <Send size={16} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+
                 {/* Actividad Personalizada */}
                 <h3 className="font-semibold mb-3">Actividad personalizada:</h3>
                 {mostrarNueva ? (
                   <div className="space-y-2">
                     <input
                       type="text"
-                      value={nuevaActividad}
-                      onChange={(e) => setNuevaActividad(e.target.value)}
-                      placeholder="Nombre de la actividad..."
+                      value={tituloActividad}
+                      onChange={(e) => setTituloActividad(e.target.value)}
+                      placeholder="Título de la actividad..."
                       className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <textarea
+                      value={descripcionActividad}
+                      onChange={(e) => setDescripcionActividad(e.target.value)}
+                      placeholder="Descripción o detalles..."
+                      className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 h-20 resize-none"
                     />
                     <div className="flex items-center gap-2 mb-2">
                       <input
@@ -451,11 +546,16 @@ function DashboardOperador({ usuario }) {
                     <div className="flex gap-2">
                       <button
                         onClick={() => {
-                          if (nuevaActividad.trim()) {
-                            iniciarActividad(nuevaActividad.trim(), actividadPersonalizadaPendiente);
+                          if (tituloActividad.trim()) {
+                            const actividadCompleta = descripcionActividad.trim() 
+                              ? `#${tituloActividad.trim()}#: ${descripcionActividad.trim()}`
+                              : tituloActividad.trim();
+                            iniciarActividad(actividadCompleta, actividadPersonalizadaPendiente);
+                            setTituloActividad('');
+                            setDescripcionActividad('');
                           }
                         }}
-                        disabled={!nuevaActividad.trim()}
+                        disabled={!tituloActividad.trim()}
                         className="flex-1 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition duration-200 disabled:opacity-50"
                       >
                         <Play size={16} className="inline mr-2" />
@@ -464,7 +564,8 @@ function DashboardOperador({ usuario }) {
                       <button
                         onClick={() => {
                           setMostrarNueva(false);
-                          setNuevaActividad('');
+                          setTituloActividad('');
+                          setDescripcionActividad('');
                           setActividadPersonalizadaPendiente(false);
                         }}
                         className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg transition duration-200"
@@ -649,55 +750,53 @@ function DashboardOperador({ usuario }) {
               </div>
 
               <div className="mb-6">
-                <h3 className="text-lg font-semibold mb-2">Actividades Completadas</h3>
+                <h3 className="text-lg font-semibold mb-2">Actividades del Turno</h3>
                 <div className="border rounded">
                   <table className="w-full">
                     <thead className="bg-gray-100">
                       <tr>
                         <th className="text-left p-2 border-b">Actividad</th>
-                        <th className="text-left p-2 border-b">Duración</th>
+                        <th className="text-left p-2 border-b">Estado</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {registrosHoy.filter(r => r.estado === 'completada' && r.turno === turnoSeleccionado).map((registro, idx) => (
-                        <tr key={idx} className="border-b">
-                          <td className="p-2">{registro.actividadNombre}</td>
-                          <td className="p-2">{registro.duracionMinutos} min</td>
+                      {/* Actividades completadas del turno */}
+                      {registrosHoy
+                        .filter(r => r.turno === turnoSeleccionado && r.estado === 'completada')
+                        .filter(r => {
+                          // Solo mostrar actividades predefinidas del turno
+                          return actividadesPorTurno[turnoSeleccionado].actividades.includes(r.actividadNombre);
+                        })
+                        .map((registro, idx) => (
+                          <tr key={`comp-${idx}`} className="border-b">
+                            <td className="p-2">{registro.actividadNombre}</td>
+                            <td className="p-2 text-green-600">Completada</td>
+                          </tr>
+                        ))}
+                      
+                      {/* Actividades pendientes marcadas para siguiente turno */}
+                      {pendientesParaSiguienteTurno.map((pendiente, idx) => (
+                        <tr key={`pend-${idx}`} className="border-b">
+                          <td className="p-2">{pendiente}</td>
+                          <td className="p-2 text-orange-600">Pendiente para siguiente turno</td>
                         </tr>
                       ))}
+                      
+                      {/* Actividades en curso */}
+                      {actividadesActivas
+                        .filter(a => a.turno === turnoSeleccionado)
+                        .map((actividad, idx) => (
+                          <tr key={`activa-${idx}`} className="border-b">
+                            <td className="p-2">{actividad.actividadNombre}</td>
+                            <td className="p-2 text-blue-600">
+                              {actividad.estado === 'pausada' ? 'En curso (PAUSADA)' : 'En curso'}
+                            </td>
+                          </tr>
+                        ))}
                     </tbody>
                   </table>
                 </div>
               </div>
-
-              {actividadesActivas.length > 0 && (
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold mb-2">Actividades en Curso</h3>
-                  <div className="bg-blue-50 p-4 rounded">
-                    <ul className="list-disc list-inside">
-                      {actividadesActivas.map((actividad, idx) => (
-                        <li key={idx}>
-                          {actividad.actividadNombre} 
-                          {actividad.estado === 'pausada' && ' (PAUSADA)'}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              )}
-
-              {pendientesParaSiguienteTurno.length > 0 && (
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold mb-2">Pendientes para Siguiente Turno</h3>
-                  <div className="bg-orange-50 p-4 rounded">
-                    <ul className="list-disc list-inside">
-                      {pendientesParaSiguienteTurno.map((pendiente, idx) => (
-                        <li key={idx}>{pendiente}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              )}
 
               <div className="flex justify-end gap-2">
                 <button
@@ -710,6 +809,10 @@ function DashboardOperador({ usuario }) {
                   className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition duration-200"
                   onClick={() => {
                     // Generar texto del reporte
+                    const actividadesCompletadasTurno = registrosHoy
+                      .filter(r => r.turno === turnoSeleccionado && r.estado === 'completada')
+                      .filter(r => actividadesPorTurno[turnoSeleccionado].actividades.includes(r.actividadNombre));
+                    
                     const textoReporte = `
 REPORTE DE TURNO
 ================
@@ -718,16 +821,10 @@ Turno: ${actividadesPorTurno[turnoSeleccionado]?.nombre} (${actividadesPorTurno[
 Fecha: ${new Date().toLocaleDateString('es-ES')}
 Hora: ${formatearHora(new Date())}
 
-ACTIVIDADES COMPLETADAS:
-${registrosHoy.filter(r => r.estado === 'completada' && r.turno === turnoSeleccionado)
-  .map(r => `- ${r.actividadNombre} (${r.duracionMinutos} min)`)
-  .join('\n')}
-
-${actividadesActivas.length > 0 ? `ACTIVIDADES EN CURSO:
-${actividadesActivas.map(a => `- ${a.actividadNombre}${a.estado === 'pausada' ? ' (PAUSADA)' : ''}`).join('\n')}` : ''}
-
-${pendientesParaSiguienteTurno.length > 0 ? `\nPENDIENTES PARA SIGUIENTE TURNO:
-${pendientesParaSiguienteTurno.map(p => `- ${p}`).join('\n')}` : ''}
+ACTIVIDADES DEL TURNO:
+${actividadesCompletadasTurno.map(r => `- ${r.actividadNombre} ✓`).join('\n')}
+${pendientesParaSiguienteTurno.map(p => `- ${p} (Pendiente para siguiente turno)`).join('\n')}
+${actividadesActivas.filter(a => a.turno === turnoSeleccionado).map(a => `- ${a.actividadNombre} (En curso${a.estado === 'pausada' ? ' - PAUSADA' : ''})`).join('\n')}
 
 Total tiempo trabajado: ${registrosHoy.reduce((acc, act) => acc + (act.duracionMinutos || 0), 0)} minutos
                     `.trim();
