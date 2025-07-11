@@ -387,48 +387,81 @@ function DashboardOperador({ usuario }) {
 
                 {/* Solicitudes con descripción */}
                 <h3 className="font-semibold mb-3">Solicitudes:</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-6">
-                  {['Daniel', 'Miguel', 'Antonio'].map((nombre) => (
-                    <button
-                      key={nombre}
-                      onClick={() => iniciarSolicitud(nombre)}
-                      className="bg-purple-100 hover:bg-purple-200 text-purple-700 px-4 py-2 rounded-lg text-left transition duration-200"
-                    >
-                      <Play size={16} className="inline mr-2" />
-                      Solicitud {nombre}
-                    </button>
-                  ))}
+                <div className="grid grid-cols-1 gap-2 mb-6">
+                  {['Daniel', 'Miguel', 'Antonio'].map((nombre) => {
+                    const nombreCompleto = `Solicitud ${nombre}`;
+                    const estaPendiente = pendientesParaSiguienteTurno.includes(nombreCompleto);
+                    
+                    return (
+                      <div key={nombre} className="flex gap-2">
+                        <button
+                          onClick={() => iniciarSolicitud(nombre)}
+                          className="flex-1 bg-purple-100 hover:bg-purple-200 text-purple-700 px-4 py-2 rounded-lg text-left transition duration-200"
+                        >
+                          <Play size={16} className="inline mr-2" />
+                          Solicitud {nombre}
+                        </button>
+                        <button
+                          onClick={() => estaPendiente ? quitarDePendientes(nombreCompleto) : marcarComoPendiente(nombreCompleto)}
+                          className={`px-3 py-2 rounded-lg transition duration-200 ${
+                            estaPendiente 
+                              ? 'bg-orange-500 hover:bg-orange-600 text-white' 
+                              : 'bg-orange-100 hover:bg-orange-200 text-orange-700'
+                          }`}
+                          title={estaPendiente ? "Quitar de pendientes" : "Marcar como pendiente para siguiente turno"}
+                        >
+                          <Send size={16} />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {/* Actividad Personalizada */}
+                <h3 className="font-semibold mb-3">Actividad personalizada:</h3>
                 {mostrarNueva ? (
-                  <div className="flex gap-2">
+                  <div className="space-y-2">
                     <input
                       type="text"
                       value={nuevaActividad}
                       onChange={(e) => setNuevaActividad(e.target.value)}
                       placeholder="Nombre de la actividad..."
-                      className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
-                    <button
-                      onClick={() => {
-                        if (nuevaActividad.trim()) {
-                          iniciarActividad(nuevaActividad.trim());
-                        }
-                      }}
-                      className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition duration-200"
-                    >
-                      Iniciar
-                    </button>
-                    <button
-                      onClick={() => {
-                        setMostrarNueva(false);
-                        setNuevaActividad('');
-                      }}
-                      className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg transition duration-200"
-                    >
-                      Cancelar
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          if (nuevaActividad.trim()) {
+                            iniciarActividad(nuevaActividad.trim());
+                          }
+                        }}
+                        className="flex-1 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition duration-200"
+                      >
+                        Iniciar Actividad
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (nuevaActividad.trim()) {
+                            marcarComoPendiente(nuevaActividad.trim());
+                            setNuevaActividad('');
+                            setMostrarNueva(false);
+                          }
+                        }}
+                        disabled={!nuevaActividad.trim()}
+                        className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg transition duration-200 disabled:opacity-50"
+                      >
+                        Dejar Pendiente
+                      </button>
+                      <button
+                        onClick={() => {
+                          setMostrarNueva(false);
+                          setNuevaActividad('');
+                        }}
+                        className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg transition duration-200"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <button
