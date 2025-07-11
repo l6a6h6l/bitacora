@@ -15,6 +15,7 @@ function DashboardOperador({ usuario }) {
   const [mostrarReporte, setMostrarReporte] = useState(false);
   const [mostrarFormularioSolicitud, setMostrarFormularioSolicitud] = useState(null);
   const [descripcionSolicitud, setDescripcionSolicitud] = useState('');
+  const [actividadPersonalizadaPendiente, setActividadPersonalizadaPendiente] = useState(false);
 
   // Definir actividades por turno
   const actividadesPorTurno = {
@@ -116,7 +117,7 @@ function DashboardOperador({ usuario }) {
     };
   }, [usuario.uid]);
 
-  const iniciarActividad = async (nombreActividad) => {
+  const iniciarActividad = async (nombreActividad, dejarPendiente = false) => {
     try {
       const nuevaActividad = {
         usuarioId: usuario.uid,
@@ -133,8 +134,15 @@ function DashboardOperador({ usuario }) {
       };
 
       await addDoc(collection(db, 'registros_actividades'), nuevaActividad);
+      
+      // Si está marcado como pendiente, agregarlo a la lista
+      if (dejarPendiente) {
+        marcarComoPendiente(nombreActividad);
+      }
+      
       setMostrarNueva(false);
       setNuevaActividad('');
+      setActividadPersonalizadaPendiente(false);
     } catch (error) {
       console.error('Error al iniciar actividad:', error);
     }
@@ -428,34 +436,36 @@ function DashboardOperador({ usuario }) {
                       placeholder="Nombre de la actividad..."
                       className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
+                    <div className="flex items-center gap-2 mb-2">
+                      <input
+                        type="checkbox"
+                        id="pendiente-checkbox"
+                        checked={actividadPersonalizadaPendiente}
+                        onChange={(e) => setActividadPersonalizadaPendiente(e.target.checked)}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="pendiente-checkbox" className="text-sm text-gray-700">
+                        Marcar como pendiente para siguiente turno
+                      </label>
+                    </div>
                     <div className="flex gap-2">
                       <button
                         onClick={() => {
                           if (nuevaActividad.trim()) {
-                            iniciarActividad(nuevaActividad.trim());
-                          }
-                        }}
-                        className="flex-1 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition duration-200"
-                      >
-                        Iniciar Actividad
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (nuevaActividad.trim()) {
-                            marcarComoPendiente(nuevaActividad.trim());
-                            setNuevaActividad('');
-                            setMostrarNueva(false);
+                            iniciarActividad(nuevaActividad.trim(), actividadPersonalizadaPendiente);
                           }
                         }}
                         disabled={!nuevaActividad.trim()}
-                        className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg transition duration-200 disabled:opacity-50"
+                        className="flex-1 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition duration-200 disabled:opacity-50"
                       >
-                        Dejar Pendiente
+                        <Play size={16} className="inline mr-2" />
+                        Iniciar Actividad
                       </button>
                       <button
                         onClick={() => {
                           setMostrarNueva(false);
                           setNuevaActividad('');
+                          setActividadPersonalizadaPendiente(false);
                         }}
                         className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg transition duration-200"
                       >
