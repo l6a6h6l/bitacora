@@ -20,6 +20,8 @@ function DashboardOperador({ usuario }) {
   const [descripcionActividad, setDescripcionActividad] = useState('');
   const [mostrarFormularioValidacion, setMostrarFormularioValidacion] = useState(null);
   const [descripcionValidacion, setDescripcionValidacion] = useState('');
+  const [mostrarFormularioPendiente, setMostrarFormularioPendiente] = useState(null);
+  const [descripcionPendiente, setDescripcionPendiente] = useState('');
 
   // Definir actividades por turno
   const actividadesPorTurno = {
@@ -203,13 +205,26 @@ function DashboardOperador({ usuario }) {
   };
 
   const marcarComoPendiente = (actividad) => {
-    if (!pendientesParaSiguienteTurno.includes(actividad)) {
-      setPendientesParaSiguienteTurno([...pendientesParaSiguienteTurno, actividad]);
+    setMostrarFormularioPendiente(actividad);
+  };
+
+  const confirmarPendiente = () => {
+    if (descripcionPendiente.trim()) {
+      const pendienteFormateado = `#${mostrarFormularioPendiente}#\n${descripcionPendiente.trim()}`;
+      if (!pendientesParaSiguienteTurno.some(p => p.titulo === mostrarFormularioPendiente)) {
+        setPendientesParaSiguienteTurno([...pendientesParaSiguienteTurno, {
+          titulo: mostrarFormularioPendiente,
+          descripcion: descripcionPendiente.trim(),
+          completo: pendienteFormateado
+        }]);
+      }
+      setDescripcionPendiente('');
+      setMostrarFormularioPendiente(null);
     }
   };
 
-  const quitarDePendientes = (actividad) => {
-    setPendientesParaSiguienteTurno(pendientesParaSiguienteTurno.filter(p => p !== actividad));
+  const quitarDePendientes = (titulo) => {
+    setPendientesParaSiguienteTurno(pendientesParaSiguienteTurno.filter(p => p.titulo !== titulo));
   };
 
   const iniciarSolicitud = (tipo) => {
@@ -383,7 +398,7 @@ function DashboardOperador({ usuario }) {
                   {actividadesPorTurno[turnoSeleccionado].actividades.map((actividad, index) => {
                     const completada = actividadYaCompletada(actividad);
                     const recurrente = esActividadRecurrente(actividad);
-                    const estaPendiente = pendientesParaSiguienteTurno.includes(actividad);
+                    const estaPendiente = pendientesParaSiguienteTurno.some(p => p.titulo === actividad);
                     
                     return (
                       <div key={index} className="flex gap-2">
@@ -427,7 +442,7 @@ function DashboardOperador({ usuario }) {
                 <div className="grid grid-cols-1 gap-2 mb-6">
                   {['Daniel', 'Miguel', 'Antonio'].map((nombre) => {
                     const nombreCompleto = `Solicitud ${nombre}`;
-                    const estaPendiente = pendientesParaSiguienteTurno.includes(nombreCompleto);
+                    const estaPendiente = pendientesParaSiguienteTurno.some(p => p.titulo === nombreCompleto);
                     
                     return (
                       <div key={nombre} className="flex gap-2">
@@ -458,7 +473,7 @@ function DashboardOperador({ usuario }) {
                 <h3 className="font-semibold mb-3 mt-6">Validaciones comunes:</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-6">
                   {validacionesComunes.map((validacion) => {
-                    const estaPendiente = pendientesParaSiguienteTurno.includes(validacion);
+                    const estaPendiente = pendientesParaSiguienteTurno.some(p => p.titulo === validacion);
                     
                     return (
                       <div key={validacion} className="flex gap-2">
@@ -597,16 +612,23 @@ function DashboardOperador({ usuario }) {
               {pendientesParaSiguienteTurno.length > 0 && (
                 <div className="bg-orange-50 rounded-lg shadow-md p-4">
                   <h3 className="font-semibold mb-2 text-orange-800">Pendientes marcados:</h3>
-                  <ul className="text-sm space-y-1">
+                  <ul className="text-sm space-y-2">
                     {pendientesParaSiguienteTurno.map((pendiente, idx) => (
-                      <li key={idx} className="flex justify-between items-center">
-                        <span>• {pendiente}</span>
-                        <button
-                          onClick={() => quitarDePendientes(pendiente)}
-                          className="text-red-500 hover:text-red-700 text-xs"
-                        >
-                          Quitar
-                        </button>
+                      <li key={idx} className="border-b border-orange-200 pb-2">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <p className="font-medium">{pendiente.titulo}</p>
+                            {pendiente.descripcion && (
+                              <p className="text-xs text-gray-600 mt-1">{pendiente.descripcion}</p>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => quitarDePendientes(pendiente.titulo)}
+                            className="text-red-500 hover:text-red-700 text-xs ml-2"
+                          >
+                            Quitar
+                          </button>
+                        </div>
                       </li>
                     ))}
                   </ul>
@@ -736,6 +758,43 @@ function DashboardOperador({ usuario }) {
           </div>
         )}
 
+        {/* Modal de Pendiente */}
+        {mostrarFormularioPendiente && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
+              <h3 className="text-lg font-semibold mb-4">Agregar Pendiente: {mostrarFormularioPendiente}</h3>
+              <p className="text-sm text-gray-600 mb-3">
+                Describe brevemente por qué queda pendiente y qué debe hacer el siguiente turno:
+              </p>
+              <textarea
+                value={descripcionPendiente}
+                onChange={(e) => setDescripcionPendiente(e.target.value)}
+                placeholder="Descripción del pendiente para el siguiente turno..."
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 h-32 resize-none"
+                autoFocus
+              />
+              <div className="flex justify-end gap-2 mt-4">
+                <button
+                  onClick={() => {
+                    setMostrarFormularioPendiente(null);
+                    setDescripcionPendiente('');
+                  }}
+                  className="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg transition duration-200"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmarPendiente}
+                  disabled={!descripcionPendiente.trim()}
+                  className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition duration-200 disabled:opacity-50"
+                >
+                  Marcar como Pendiente
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Modal de Reporte */}
         {mostrarReporte && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -780,7 +839,14 @@ function DashboardOperador({ usuario }) {
                       {/* Actividades pendientes marcadas para siguiente turno */}
                       {pendientesParaSiguienteTurno.map((pendiente, idx) => (
                         <tr key={`pend-${idx}`} className="border-b">
-                          <td className="p-2">{pendiente}</td>
+                          <td className="p-2">
+                            <div>
+                              <p className="font-medium">{pendiente.titulo}</p>
+                              {pendiente.descripcion && (
+                                <p className="text-xs text-gray-600 mt-1">{pendiente.descripcion}</p>
+                              )}
+                            </div>
+                          </td>
                           <td className="p-2 text-orange-600">Pendiente para siguiente turno</td>
                         </tr>
                       ))}
@@ -826,7 +892,7 @@ Hora: ${formatearHora(new Date())}
 
 ACTIVIDADES DEL TURNO:
 ${actividadesCompletadasTurno.map(r => `- ${r.actividadNombre} ✓`).join('\n')}
-${pendientesParaSiguienteTurno.map(p => `- ${p} (Pendiente para siguiente turno)`).join('\n')}
+${pendientesParaSiguienteTurno.map(p => p.completo).join('\n\n')}
 ${actividadesActivas.filter(a => a.turno === turnoSeleccionado).map(a => `- ${a.actividadNombre} (En curso${a.estado === 'pausada' ? ' - PAUSADA' : ''})`).join('\n')}
 
 Total tiempo trabajado: ${registrosHoy.reduce((acc, act) => acc + (act.duracionMinutos || 0), 0)} minutos
