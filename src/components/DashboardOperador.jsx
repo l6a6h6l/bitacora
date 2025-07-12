@@ -795,114 +795,202 @@ function DashboardOperador({ usuario }) {
           </div>
         )}
 
-        {/* Modal de Reporte */}
+        {/* Modal de Reporte MEJORADO */}
         {mostrarReporte && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
-              <h2 className="text-2xl font-bold mb-4">Reporte de Turno</h2>
-              
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold mb-2">Información del Turno</h3>
-                <div className="bg-gray-50 p-4 rounded">
-                  <p><strong>Operador:</strong> {obtenerNombreFormal()}</p>
-                  <p><strong>Turno:</strong> {actividadesPorTurno[turnoSeleccionado]?.nombre} ({actividadesPorTurno[turnoSeleccionado]?.horario})</p>
-                  <p><strong>Fecha:</strong> {new Date().toLocaleDateString('es-ES')}</p>
-                  <p><strong>Hora del reporte:</strong> {formatearHora(new Date())}</p>
+            <div className="bg-white rounded-lg shadow-xl p-6 max-w-3xl w-full max-h-[85vh] overflow-y-auto">
+              <div className="border-b pb-4 mb-6">
+                <h2 className="text-3xl font-bold text-gray-800 mb-2">📋 Reporte de Turno</h2>
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="font-semibold text-gray-700">Operador:</span>
+                      <span className="ml-2 text-gray-900">{obtenerNombreFormal()}</span>
+                    </div>
+                    <div>
+                      <span className="font-semibold text-gray-700">Turno:</span>
+                      <span className="ml-2 text-gray-900">
+                        {actividadesPorTurno[turnoSeleccionado]?.nombre} ({actividadesPorTurno[turnoSeleccionado]?.horario})
+                      </span>
+                    </div>
+                    <div>
+                      <span className="font-semibold text-gray-700">Fecha:</span>
+                      <span className="ml-2 text-gray-900">{new Date().toLocaleDateString('es-ES')}</span>
+                    </div>
+                    <div>
+                      <span className="font-semibold text-gray-700">Hora del reporte:</span>
+                      <span className="ml-2 text-gray-900">{formatearHora(new Date())}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
+              {/* Actividades Completadas */}
               <div className="mb-6">
-                <h3 className="text-lg font-semibold mb-2">Actividades del Turno</h3>
-                <div className="border rounded">
-                  <table className="w-full">
-                    <thead className="bg-gray-100">
-                      <tr>
-                        <th className="text-left p-2 border-b">Actividad</th>
-                        <th className="text-left p-2 border-b">Estado</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {/* Actividades completadas del turno */}
+                <h3 className="text-xl font-semibold mb-4 text-green-700 flex items-center gap-2">
+                  ✅ Actividades Completadas
+                </h3>
+                <div className="bg-green-50 rounded-lg p-4">
+                  {registrosHoy
+                    .filter(r => r.turno === turnoSeleccionado && r.estado === 'completada')
+                    .filter(r => actividadesPorTurno[turnoSeleccionado].actividades.includes(r.actividadNombre))
+                    .length > 0 ? (
+                    <div className="grid grid-cols-1 gap-2">
                       {registrosHoy
                         .filter(r => r.turno === turnoSeleccionado && r.estado === 'completada')
-                        .filter(r => {
-                          // Solo mostrar actividades predefinidas del turno
-                          return actividadesPorTurno[turnoSeleccionado].actividades.includes(r.actividadNombre);
-                        })
+                        .filter(r => actividadesPorTurno[turnoSeleccionado].actividades.includes(r.actividadNombre))
                         .map((registro, idx) => (
-                          <tr key={`comp-${idx}`} className="border-b">
-                            <td className="p-2">{registro.actividadNombre}</td>
-                            <td className="p-2 text-green-600">Completada</td>
-                          </tr>
+                          <div key={`comp-${idx}`} className="bg-white rounded-lg p-3 border-l-4 border-green-500">
+                            <p className="font-medium text-gray-800">{registro.actividadNombre}</p>
+                            <p className="text-sm text-gray-600">
+                              Completada a las {formatearHora(registro.horaFin)} 
+                              ({registro.duracionMinutos} min)
+                            </p>
+                          </div>
                         ))}
-                      
-                      {/* Actividades pendientes marcadas para siguiente turno */}
-                      {pendientesParaSiguienteTurno.map((pendiente, idx) => (
-                        <tr key={`pend-${idx}`} className="border-b">
-                          <td className="p-2">
-                            <div>
-                              <p className="font-medium">{pendiente.titulo}</p>
-                              {pendiente.descripcion && (
-                                <p className="text-xs text-gray-600 mt-1">{pendiente.descripcion}</p>
-                              )}
-                            </div>
-                          </td>
-                          <td className="p-2 text-orange-600">Pendiente para siguiente turno</td>
-                        </tr>
-                      ))}
-                      
-                      {/* Actividades en curso */}
+                    </div>
+                  ) : (
+                    <p className="text-gray-600 italic">No hay actividades completadas del turno actual</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Actividades en Curso */}
+              {actividadesActivas.filter(a => a.turno === turnoSeleccionado).length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-xl font-semibold mb-4 text-blue-700 flex items-center gap-2">
+                    🔄 Actividades en Curso
+                  </h3>
+                  <div className="bg-blue-50 rounded-lg p-4">
+                    <div className="grid grid-cols-1 gap-2">
                       {actividadesActivas
                         .filter(a => a.turno === turnoSeleccionado)
                         .map((actividad, idx) => (
-                          <tr key={`activa-${idx}`} className="border-b">
-                            <td className="p-2">{actividad.actividadNombre}</td>
-                            <td className="p-2 text-blue-600">
-                              {actividad.estado === 'pausada' ? 'En curso (PAUSADA)' : 'En curso'}
-                            </td>
-                          </tr>
+                          <div key={`activa-${idx}`} className="bg-white rounded-lg p-3 border-l-4 border-blue-500">
+                            <p className="font-medium text-gray-800">{actividad.actividadNombre}</p>
+                            <p className="text-sm text-gray-600">
+                              Iniciada a las {formatearHora(actividad.horaInicio)}
+                              {actividad.estado === 'pausada' && ' - Actualmente PAUSADA'}
+                            </p>
+                          </div>
                         ))}
-                    </tbody>
-                  </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Pendientes para Siguiente Turno - MEJORADO */}
+              {pendientesParaSiguienteTurno.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-xl font-semibold mb-4 text-orange-700 flex items-center gap-2">
+                    📤 Pendientes para Siguiente Turno
+                  </h3>
+                  <div className="bg-orange-50 rounded-lg p-4">
+                    <div className="space-y-4">
+                      {pendientesParaSiguienteTurno.map((pendiente, idx) => (
+                        <div key={`pend-${idx}`} className="bg-white rounded-lg p-4 border-l-4 border-orange-500 shadow-sm">
+                          <div className="mb-2">
+                            <h4 className="text-lg font-bold text-gray-800 mb-1">
+                              {pendiente.titulo}
+                            </h4>
+                          </div>
+                          {pendiente.descripcion && (
+                            <div className="bg-gray-50 rounded-md p-3 border-l-2 border-gray-300">
+                              <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                                {pendiente.descripcion}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Resumen */}
+              <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                <h3 className="text-lg font-semibold mb-2 text-gray-700">📊 Resumen del Turno</h3>
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div className="bg-white rounded p-3">
+                    <p className="text-2xl font-bold text-green-600">
+                      {registrosHoy.filter(r => r.turno === turnoSeleccionado && r.estado === 'completada').length}
+                    </p>
+                    <p className="text-sm text-gray-600">Completadas</p>
+                  </div>
+                  <div className="bg-white rounded p-3">
+                    <p className="text-2xl font-bold text-blue-600">
+                      {actividadesActivas.filter(a => a.turno === turnoSeleccionado).length}
+                    </p>
+                    <p className="text-sm text-gray-600">En curso</p>
+                  </div>
+                  <div className="bg-white rounded p-3">
+                    <p className="text-2xl font-bold text-orange-600">
+                      {pendientesParaSiguienteTurno.length}
+                    </p>
+                    <p className="text-sm text-gray-600">Pendientes</p>
+                  </div>
+                </div>
+                <div className="mt-3 text-center">
+                  <p className="text-sm text-gray-600">
+                    <span className="font-semibold">Tiempo total trabajado:</span> {registrosHoy.reduce((acc, act) => acc + (act.duracionMinutos || 0), 0)} minutos
+                  </p>
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2">
+              <div className="flex justify-end gap-3 pt-4 border-t">
                 <button
                   onClick={() => setMostrarReporte(false)}
-                  className="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg transition duration-200"
+                  className="px-6 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg transition duration-200 font-medium"
                 >
                   Cerrar
                 </button>
                 <button
-                  className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition duration-200"
+                  className="px-6 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition duration-200 font-medium flex items-center gap-2"
                   onClick={() => {
-                    // Generar texto del reporte
+                    // Generar texto del reporte MEJORADO
                     const actividadesCompletadasTurno = registrosHoy
                       .filter(r => r.turno === turnoSeleccionado && r.estado === 'completada')
                       .filter(r => actividadesPorTurno[turnoSeleccionado].actividades.includes(r.actividadNombre));
                     
                     const textoReporte = `
-REPORTE DE TURNO
-================
-Operador: ${obtenerNombreFormal()}
-Turno: ${actividadesPorTurno[turnoSeleccionado]?.nombre} (${actividadesPorTurno[turnoSeleccionado]?.horario})
-Fecha: ${new Date().toLocaleDateString('es-ES')}
-Hora: ${formatearHora(new Date())}
+📋 REPORTE DE TURNO
+==================
+👤 Operador: ${obtenerNombreFormal()}
+🕐 Turno: ${actividadesPorTurno[turnoSeleccionado]?.nombre} (${actividadesPorTurno[turnoSeleccionado]?.horario})
+📅 Fecha: ${new Date().toLocaleDateString('es-ES')}
+⏰ Hora: ${formatearHora(new Date())}
 
-ACTIVIDADES DEL TURNO:
-${actividadesCompletadasTurno.map(r => `- ${r.actividadNombre} ✓`).join('\n')}
-${pendientesParaSiguienteTurno.map(p => p.completo).join('\n\n')}
-${actividadesActivas.filter(a => a.turno === turnoSeleccionado).map(a => `- ${a.actividadNombre} (En curso${a.estado === 'pausada' ? ' - PAUSADA' : ''})`).join('\n')}
+✅ ACTIVIDADES COMPLETADAS:
+${actividadesCompletadasTurno.length > 0 
+  ? actividadesCompletadasTurno.map(r => `• ${r.actividadNombre}`).join('\n')
+  : '• No hay actividades completadas del turno actual'
+}
 
-Total tiempo trabajado: ${registrosHoy.reduce((acc, act) => acc + (act.duracionMinutos || 0), 0)} minutos
+${actividadesActivas.filter(a => a.turno === turnoSeleccionado).length > 0 ? `
+🔄 ACTIVIDADES EN CURSO:
+${actividadesActivas.filter(a => a.turno === turnoSeleccionado).map(a => `• ${a.actividadNombre}${a.estado === 'pausada' ? ' (PAUSADA)' : ''}`).join('\n')}
+` : ''}
+
+${pendientesParaSiguienteTurno.length > 0 ? `
+📤 PENDIENTES PARA SIGUIENTE TURNO:
+${pendientesParaSiguienteTurno.map(p => `
+🔸 ${p.titulo}
+   ${p.descripcion ? p.descripcion.split('\n').map(linea => `   ${linea}`).join('\n') : ''}
+`).join('\n')}` : ''}
+
+📊 RESUMEN:
+• Actividades completadas: ${actividadesCompletadasTurno.length}
+• Actividades en curso: ${actividadesActivas.filter(a => a.turno === turnoSeleccionado).length}
+• Pendientes para siguiente turno: ${pendientesParaSiguienteTurno.length}
+• Tiempo total trabajado: ${registrosHoy.reduce((acc, act) => acc + (act.duracionMinutos || 0), 0)} minutos
                     `.trim();
                     
                     navigator.clipboard.writeText(textoReporte);
                     alert('Reporte copiado al portapapeles');
                   }}
                 >
-                  Copiar Reporte
+                  📋 Copiar Reporte
                 </button>
               </div>
             </div>
