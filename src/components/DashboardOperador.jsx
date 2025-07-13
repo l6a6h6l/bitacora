@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Clock, Play, Square, Plus, Activity, LogOut, Calendar, Moon, Sun, Sunset, Check, FileText, AlertCircle, Pause, PlayCircle, Send } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../firebase/config';
-import { collection, addDoc, query, where, onSnapshot, updateDoc, doc, orderBy } from 'firebase/firestore';
+import { collection, addDoc, query, where, onSnapshot, updateDoc, doc, orderBy, getDocs } from 'firebase/firestore';
 
 function DashboardOperador({ usuario }) {
   const [turnoSeleccionado, setTurnoSeleccionado] = useState(null);
@@ -20,8 +20,9 @@ function DashboardOperador({ usuario }) {
   const [descripcionActividad, setDescripcionActividad] = useState('');
   const [mostrarFormularioValidacion, setMostrarFormularioValidacion] = useState(null);
   const [descripcionValidacion, setDescripcionValidacion] = useState('');
-  const [mostrarFormularioPendiente, setMostrarFormularioPendiente] = useState(null);
-  const [descripcionPendiente, setDescripcionPendiente] = useState('');
+  const [mostrarFormularioActividad, setMostrarFormularioActividad] = useState(null);
+  const [descripcionActividadEjecutada, setDescripcionActividadEjecutada] = useState('');
+  const [turnoYaTomado, setTurnoYaTomado] = useState(false);
 
   // Definir actividades por turno
   const actividadesPorTurno = {
@@ -99,6 +100,29 @@ function DashboardOperador({ usuario }) {
     return nombresFormales[usuario.email.toLowerCase()] || usuario.nombre;
   };
 
+  // Verificar si ya tomó un turno hoy
+  const verificarTurnoDelDia = async () => {
+    const hoy = new Date().toISOString().split('T')[0];
+    const qTurnos = query(
+      collection(db, 'registros_actividades'),
+      where('usuarioId', '==', usuario.uid),
+      where('fecha', '==', hoy)
+    );
+    
+    const snapshot = await getDocs(qTurnos);
+    const registrosConTurno = snapshot.docs.filter(doc => doc.data().turno);
+    
+    if (registrosConTurno.length > 0) {
+      const turnoTomado = registrosConTurno[0].data().turno;
+      setTurnoSeleccionado(turnoTomado);
+      setTurnoYaTomado(true);
+    }
+  };
+
+  useEffect(() => {
+    verificarTurnoDelDia();
+  }, [usuario.uid]);
+
   useEffect(() => {
     // Cargar registros del día
     const hoy = new Date().toISOString().split('T')[0];
@@ -134,13 +158,22 @@ function DashboardOperador({ usuario }) {
     };
   }, [usuario.uid]);
 
-  const iniciarActividad = async (nombreActividad, dejarPendiente = false) => {
+  const seleccionarTurno = (turno) => {
+    setTurnoSeleccionado(turno);
+    setTurnoYaTomado(true);
+  };
+
+  const iniciarActividad = async (nombreActividad, descripcion = '', dejarPendiente = false) => {
     try {
+      const actividadCompleta = descripcion.trim() 
+        ? `${nombreActividad}: ${descripcion.trim()}`
+        : nombreActividad;
+
       const nuevaActividad = {
         usuarioId: usuario.uid,
         usuarioNombre: obtenerNombreFormal(),
         usuarioEmail: usuario.email,
-        actividadNombre: nombreActividad,
+        actividadNombre: actividadCompleta,
         turno: turnoSeleccionado,
         horaInicio: new Date(),
         horaFin: null,
@@ -153,8 +186,12 @@ function DashboardOperador({ usuario }) {
       await addDoc(collection(db, 'registros_actividades'), nuevaActividad);
       
       // Si está marcado como pendiente, agregarlo a la lista
-      if (dejarPendiente) {
-        marcarComoPendiente(nombreActividad);
+      if (dejarPendiente && descripcion.trim()) {
+        setPendientesParaSiguienteTurno([...pendientesParaSiguienteTurno, {
+          titulo: nombreActividad,
+          descripcion: descripcion.trim(),
+          completo: `#${nombreActividad}#\n${descripcion.trim()}`
+        }]);
       }
       
       setMostrarNueva(false);
@@ -162,6 +199,8 @@ function DashboardOperador({ usuario }) {
       setTituloActividad('');
       setDescripcionActividad('');
       setActividadPersonalizadaPendiente(false);
+      setMostrarFormularioActividad(null);
+      setDescripcionActividadEjecutada('');
     } catch (error) {
       console.error('Error al iniciar actividad:', error);
     }
@@ -204,22 +243,25 @@ function DashboardOperador({ usuario }) {
     }
   };
 
-  const marcarComoPendiente = (actividad) => {
-    setMostrarFormularioPendiente(actividad);
+  const iniciarActividadConDescripcion = (actividad) => {
+    setMostrarFormularioActividad(actividad);
   };
 
-  const confirmarPendiente = () => {
-    if (descripcionPendiente.trim()) {
-      const pendienteFormateado = `#${mostrarFormularioPendiente}#\n${descripcionPendiente.trim()}`;
-      if (!pendientesParaSiguienteTurno.some(p => p.titulo === mostrarFormularioPendiente)) {
-        setPendientesParaSiguienteTurno([...pendientesParaSiguienteTurno, {
-          titulo: mostrarFormularioPendiente,
-          descripcion: descripcionPendiente.trim(),
-          completo: pendienteFormateado
-        }]);
-      }
-      setDescripcionPendiente('');
-      setMostrarFormularioPendiente(null);
+  const confirmarActividadConDescripcion = () => {
+    if (descripcionActividadEjecutada.trim()) {
+      iniciarActividad(mostrarFormularioActividad, descripcionActividadEjecutada);
+    } else {
+      iniciarActividad(mostrarFormularioActividad);
+    }
+  };
+
+  const marcarComoPendiente = (actividad, descripcion) => {
+    if (!pendientesParaSiguienteTurno.some(p => p.titulo === actividad)) {
+      setPendientesParaSiguienteTurno([...pendientesParaSiguienteTurno, {
+        titulo: actividad,
+        descripcion: descripcion || '',
+        completo: descripcion ? `#${actividad}#\n${descripcion}` : `#${actividad}#`
+      }]);
     }
   };
 
@@ -233,7 +275,7 @@ function DashboardOperador({ usuario }) {
 
   const confirmarSolicitud = () => {
     if (descripcionSolicitud.trim()) {
-      iniciarActividad(`Solicitud ${mostrarFormularioSolicitud}: ${descripcionSolicitud}`);
+      iniciarActividad(`Solicitud ${mostrarFormularioSolicitud}`, descripcionSolicitud);
       setDescripcionSolicitud('');
       setMostrarFormularioSolicitud(null);
     }
@@ -245,7 +287,7 @@ function DashboardOperador({ usuario }) {
 
   const confirmarValidacion = () => {
     if (descripcionValidacion.trim()) {
-      iniciarActividad(`#${mostrarFormularioValidacion}#: ${descripcionValidacion}`);
+      iniciarActividad(`#${mostrarFormularioValidacion}#`, descripcionValidacion);
       setDescripcionValidacion('');
       setMostrarFormularioValidacion(null);
     }
@@ -273,6 +315,7 @@ function DashboardOperador({ usuario }) {
 
   const cambiarTurno = () => {
     setTurnoSeleccionado(null);
+    setTurnoYaTomado(false);
   };
 
   const TurnoIcon = turnoSeleccionado ? actividadesPorTurno[turnoSeleccionado].icono : Activity;
@@ -291,12 +334,14 @@ function DashboardOperador({ usuario }) {
                   <TurnoIcon size={16} />
                   Turno {actividadesPorTurno[turnoSeleccionado].nombre}
                 </span>
-                <button
-                  onClick={cambiarTurno}
-                  className="text-sm text-blue-600 hover:text-blue-800"
-                >
-                  Cambiar
-                </button>
+                {!turnoYaTomado && (
+                  <button
+                    onClick={cambiarTurno}
+                    className="text-sm text-blue-600 hover:text-blue-800"
+                  >
+                    Cambiar
+                  </button>
+                )}
               </div>
             )}
             <button
@@ -314,14 +359,26 @@ function DashboardOperador({ usuario }) {
         {!turnoSeleccionado && (
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <h2 className="text-xl font-semibold mb-4">Selecciona tu turno</h2>
+            {turnoYaTomado && (
+              <div className="bg-yellow-100 border border-yellow-300 rounded-lg p-4 mb-4">
+                <p className="text-yellow-800 text-sm">
+                  ⚠️ Ya has registrado actividades hoy. Solo puedes tomar un turno por día.
+                </p>
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {Object.entries(actividadesPorTurno).map(([key, turno]) => {
                 const IconoTurno = turno.icono;
                 return (
                   <button
                     key={key}
-                    onClick={() => setTurnoSeleccionado(key)}
-                    className="p-6 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition duration-200"
+                    onClick={() => seleccionarTurno(key)}
+                    disabled={turnoYaTomado}
+                    className={`p-6 border-2 border-gray-200 rounded-lg transition duration-200 ${
+                      turnoYaTomado 
+                        ? 'opacity-50 cursor-not-allowed bg-gray-100' 
+                        : 'hover:border-blue-500 hover:bg-blue-50'
+                    }`}
                   >
                     <IconoTurno size={48} className="mx-auto mb-2 text-blue-500" />
                     <h3 className="text-lg font-semibold">{turno.nombre}</h3>
@@ -398,12 +455,11 @@ function DashboardOperador({ usuario }) {
                   {actividadesPorTurno[turnoSeleccionado].actividades.map((actividad, index) => {
                     const completada = actividadYaCompletada(actividad);
                     const recurrente = esActividadRecurrente(actividad);
-                    const estaPendiente = pendientesParaSiguienteTurno.some(p => p.titulo === actividad);
                     
                     return (
                       <div key={index} className="flex gap-2">
                         <button
-                          onClick={() => iniciarActividad(actividad)}
+                          onClick={() => iniciarActividadConDescripcion(actividad)}
                           disabled={completada}
                           className={`flex-1 text-left px-4 py-2 rounded-lg transition duration-200 flex items-center justify-between ${
                             completada 
@@ -419,19 +475,6 @@ function DashboardOperador({ usuario }) {
                           </span>
                           {recurrente && <span className="text-xs">Recurrente</span>}
                         </button>
-                        {!completada && (
-                          <button
-                            onClick={() => estaPendiente ? quitarDePendientes(actividad) : marcarComoPendiente(actividad)}
-                            className={`px-3 py-2 rounded-lg transition duration-200 ${
-                              estaPendiente 
-                                ? 'bg-orange-500 hover:bg-orange-600 text-white' 
-                                : 'bg-orange-100 hover:bg-orange-200 text-orange-700'
-                            }`}
-                            title={estaPendiente ? "Quitar de pendientes" : "Marcar como pendiente para siguiente turno"}
-                          >
-                            <Send size={16} />
-                          </button>
-                        )}
                       </div>
                     );
                   })}
@@ -440,64 +483,31 @@ function DashboardOperador({ usuario }) {
                 {/* Solicitudes con descripción */}
                 <h3 className="font-semibold mb-3">Solicitudes:</h3>
                 <div className="grid grid-cols-1 gap-2 mb-6">
-                  {['Daniel', 'Miguel', 'Antonio'].map((nombre) => {
-                    const nombreCompleto = `Solicitud ${nombre}`;
-                    const estaPendiente = pendientesParaSiguienteTurno.some(p => p.titulo === nombreCompleto);
-                    
-                    return (
-                      <div key={nombre} className="flex gap-2">
-                        <button
-                          onClick={() => iniciarSolicitud(nombre)}
-                          className="flex-1 bg-purple-100 hover:bg-purple-200 text-purple-700 px-4 py-2 rounded-lg text-left transition duration-200"
-                        >
-                          <Play size={16} className="inline mr-2" />
-                          Solicitud {nombre}
-                        </button>
-                        <button
-                          onClick={() => estaPendiente ? quitarDePendientes(nombreCompleto) : marcarComoPendiente(nombreCompleto)}
-                          className={`px-3 py-2 rounded-lg transition duration-200 ${
-                            estaPendiente 
-                              ? 'bg-orange-500 hover:bg-orange-600 text-white' 
-                              : 'bg-orange-100 hover:bg-orange-200 text-orange-700'
-                          }`}
-                          title={estaPendiente ? "Quitar de pendientes" : "Marcar como pendiente para siguiente turno"}
-                        >
-                          <Send size={16} />
-                        </button>
-                      </div>
-                    );
-                  })}
+                  {['Daniel', 'Miguel', 'Antonio'].map((nombre) => (
+                    <button
+                      key={nombre}
+                      onClick={() => iniciarSolicitud(nombre)}
+                      className="bg-purple-100 hover:bg-purple-200 text-purple-700 px-4 py-2 rounded-lg text-left transition duration-200"
+                    >
+                      <Play size={16} className="inline mr-2" />
+                      Solicitud {nombre}
+                    </button>
+                  ))}
                 </div>
 
                 {/* Validaciones Comunes */}
                 <h3 className="font-semibold mb-3 mt-6">Validaciones comunes:</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-6">
-                  {validacionesComunes.map((validacion) => {
-                    const estaPendiente = pendientesParaSiguienteTurno.some(p => p.titulo === validacion);
-                    
-                    return (
-                      <div key={validacion} className="flex gap-2">
-                        <button
-                          onClick={() => iniciarValidacion(validacion)}
-                          className="flex-1 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-4 py-2 rounded-lg text-left transition duration-200"
-                        >
-                          <Play size={16} className="inline mr-2" />
-                          {validacion}
-                        </button>
-                        <button
-                          onClick={() => estaPendiente ? quitarDePendientes(validacion) : marcarComoPendiente(validacion)}
-                          className={`px-3 py-2 rounded-lg transition duration-200 ${
-                            estaPendiente 
-                              ? 'bg-orange-500 hover:bg-orange-600 text-white' 
-                              : 'bg-orange-100 hover:bg-orange-200 text-orange-700'
-                          }`}
-                          title={estaPendiente ? "Quitar de pendientes" : "Marcar como pendiente para siguiente turno"}
-                        >
-                          <Send size={16} />
-                        </button>
-                      </div>
-                    );
-                  })}
+                  {validacionesComunes.map((validacion) => (
+                    <button
+                      key={validacion}
+                      onClick={() => iniciarValidacion(validacion)}
+                      className="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-4 py-2 rounded-lg text-left transition duration-200"
+                    >
+                      <Play size={16} className="inline mr-2" />
+                      {validacion}
+                    </button>
+                  ))}
                 </div>
 
                 {/* Actividad Personalizada */}
@@ -533,10 +543,7 @@ function DashboardOperador({ usuario }) {
                       <button
                         onClick={() => {
                           if (tituloActividad.trim()) {
-                            const actividadCompleta = descripcionActividad.trim() 
-                              ? `#${tituloActividad.trim()}#: ${descripcionActividad.trim()}`
-                              : tituloActividad.trim();
-                            iniciarActividad(actividadCompleta, actividadPersonalizadaPendiente);
+                            iniciarActividad(tituloActividad.trim(), descripcionActividad.trim(), actividadPersonalizadaPendiente);
                           }
                         }}
                         disabled={!tituloActividad.trim()}
@@ -690,6 +697,42 @@ function DashboardOperador({ usuario }) {
           </div>
         )}
 
+        {/* Modal de Actividad con Descripción */}
+        {mostrarFormularioActividad && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
+              <h3 className="text-lg font-semibold mb-4">{mostrarFormularioActividad}</h3>
+              <p className="text-sm text-gray-600 mb-3">
+                Agrega un mensaje si hubo algún inconveniente o detalle especial:
+              </p>
+              <textarea
+                value={descripcionActividadEjecutada}
+                onChange={(e) => setDescripcionActividadEjecutada(e.target.value)}
+                placeholder="Ej: El correo no llegó, la validación falló, etc. (Opcional)"
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 h-32 resize-none"
+                autoFocus
+              />
+              <div className="flex justify-end gap-2 mt-4">
+                <button
+                  onClick={() => {
+                    setMostrarFormularioActividad(null);
+                    setDescripcionActividadEjecutada('');
+                  }}
+                  className="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg transition duration-200"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmarActividadConDescripcion}
+                  className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition duration-200"
+                >
+                  Iniciar Actividad
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Modal de Solicitud */}
         {mostrarFormularioSolicitud && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -758,239 +801,120 @@ function DashboardOperador({ usuario }) {
           </div>
         )}
 
-        {/* Modal de Pendiente */}
-        {mostrarFormularioPendiente && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
-              <h3 className="text-lg font-semibold mb-4">Agregar Pendiente: {mostrarFormularioPendiente}</h3>
-              <p className="text-sm text-gray-600 mb-3">
-                Describe brevemente por qué queda pendiente y qué debe hacer el siguiente turno:
-              </p>
-              <textarea
-                value={descripcionPendiente}
-                onChange={(e) => setDescripcionPendiente(e.target.value)}
-                placeholder="Descripción del pendiente para el siguiente turno..."
-                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 h-32 resize-none"
-                autoFocus
-              />
-              <div className="flex justify-end gap-2 mt-4">
-                <button
-                  onClick={() => {
-                    setMostrarFormularioPendiente(null);
-                    setDescripcionPendiente('');
-                  }}
-                  className="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg transition duration-200"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={confirmarPendiente}
-                  disabled={!descripcionPendiente.trim()}
-                  className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition duration-200 disabled:opacity-50"
-                >
-                  Marcar como Pendiente
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Modal de Reporte MEJORADO */}
+        {/* Modal de Reporte COMPACTO */}
         {mostrarReporte && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl p-6 max-w-3xl w-full max-h-[85vh] overflow-y-auto">
-              <div className="border-b pb-4 mb-6">
-                <h2 className="text-3xl font-bold text-gray-800 mb-2">📋 Reporte de Turno</h2>
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="font-semibold text-gray-700">Operador:</span>
-                      <span className="ml-2 text-gray-900">{obtenerNombreFormal()}</span>
-                    </div>
-                    <div>
-                      <span className="font-semibold text-gray-700">Turno:</span>
-                      <span className="ml-2 text-gray-900">
-                        {actividadesPorTurno[turnoSeleccionado]?.nombre} ({actividadesPorTurno[turnoSeleccionado]?.horario})
-                      </span>
-                    </div>
-                    <div>
-                      <span className="font-semibold text-gray-700">Fecha:</span>
-                      <span className="ml-2 text-gray-900">{new Date().toLocaleDateString('es-ES')}</span>
-                    </div>
-                    <div>
-                      <span className="font-semibold text-gray-700">Hora del reporte:</span>
-                      <span className="ml-2 text-gray-900">{formatearHora(new Date())}</span>
-                    </div>
-                  </div>
+            <div className="bg-white rounded-lg shadow-xl p-4 max-w-lg w-full max-h-[80vh] overflow-y-auto">
+              <div className="border-b pb-3 mb-4">
+                <h2 className="text-xl font-bold text-gray-800">📋 Reporte de Turno</h2>
+                <div className="text-sm text-gray-600 mt-1">
+                  {obtenerNombreFormal()} • {actividadesPorTurno[turnoSeleccionado]?.nombre} • {new Date().toLocaleDateString('es-ES')}
                 </div>
               </div>
 
-              {/* Actividades Completadas */}
-              <div className="mb-6">
-                <h3 className="text-xl font-semibold mb-4 text-green-700 flex items-center gap-2">
-                  ✅ Actividades Completadas
-                </h3>
-                <div className="bg-green-50 rounded-lg p-4">
+              {/* Actividades Completadas COMPACTO */}
+              <div className="mb-4">
+                <h3 className="text-sm font-semibold mb-2 text-green-700">✅ Completadas</h3>
+                <div className="space-y-1">
                   {registrosHoy
                     .filter(r => r.turno === turnoSeleccionado && r.estado === 'completada')
                     .filter(r => actividadesPorTurno[turnoSeleccionado].actividades.includes(r.actividadNombre))
                     .length > 0 ? (
-                    <div className="grid grid-cols-1 gap-2">
-                      {registrosHoy
-                        .filter(r => r.turno === turnoSeleccionado && r.estado === 'completada')
-                        .filter(r => actividadesPorTurno[turnoSeleccionado].actividades.includes(r.actividadNombre))
-                        .map((registro, idx) => (
-                          <div key={`comp-${idx}`} className="bg-white rounded-lg p-3 border-l-4 border-green-500">
-                            <p className="font-medium text-gray-800">{registro.actividadNombre}</p>
-                            <p className="text-sm text-gray-600">
-                              Completada a las {formatearHora(registro.horaFin)} 
-                              ({registro.duracionMinutos} min)
-                            </p>
-                          </div>
-                        ))}
-                    </div>
+                    registrosHoy
+                      .filter(r => r.turno === turnoSeleccionado && r.estado === 'completada')
+                      .filter(r => actividadesPorTurno[turnoSeleccionado].actividades.includes(r.actividadNombre))
+                      .map((registro, idx) => (
+                        <div key={`comp-${idx}`} className="text-xs bg-green-50 p-2 rounded border-l-2 border-green-400">
+                          <span className="font-medium">{registro.actividadNombre}</span>
+                          <span className="text-gray-600 ml-2">({formatearHora(registro.horaFin)})</span>
+                        </div>
+                      ))
                   ) : (
-                    <p className="text-gray-600 italic">No hay actividades completadas del turno actual</p>
+                    <div className="text-xs text-gray-500 italic">Sin actividades completadas</div>
                   )}
                 </div>
               </div>
 
-              {/* Actividades en Curso */}
+              {/* Actividades en Curso COMPACTO */}
               {actividadesActivas.filter(a => a.turno === turnoSeleccionado).length > 0 && (
-                <div className="mb-6">
-                  <h3 className="text-xl font-semibold mb-4 text-blue-700 flex items-center gap-2">
-                    🔄 Actividades en Curso
-                  </h3>
-                  <div className="bg-blue-50 rounded-lg p-4">
-                    <div className="grid grid-cols-1 gap-2">
-                      {actividadesActivas
-                        .filter(a => a.turno === turnoSeleccionado)
-                        .map((actividad, idx) => (
-                          <div key={`activa-${idx}`} className="bg-white rounded-lg p-3 border-l-4 border-blue-500">
-                            <p className="font-medium text-gray-800">{actividad.actividadNombre}</p>
-                            <p className="text-sm text-gray-600">
-                              Iniciada a las {formatearHora(actividad.horaInicio)}
-                              {actividad.estado === 'pausada' && ' - Actualmente PAUSADA'}
-                            </p>
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Pendientes para Siguiente Turno - MEJORADO */}
-              {pendientesParaSiguienteTurno.length > 0 && (
-                <div className="mb-6">
-                  <h3 className="text-xl font-semibold mb-4 text-orange-700 flex items-center gap-2">
-                    📤 Pendientes para Siguiente Turno
-                  </h3>
-                  <div className="bg-orange-50 rounded-lg p-4">
-                    <div className="space-y-4">
-                      {pendientesParaSiguienteTurno.map((pendiente, idx) => (
-                        <div key={`pend-${idx}`} className="bg-white rounded-lg p-4 border-l-4 border-orange-500 shadow-sm">
-                          <div className="mb-2">
-                            <h4 className="text-lg font-bold text-gray-800 mb-1">
-                              {pendiente.titulo}
-                            </h4>
-                          </div>
-                          {pendiente.descripcion && (
-                            <div className="bg-gray-50 rounded-md p-3 border-l-2 border-gray-300">
-                              <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
-                                {pendiente.descripcion}
-                              </p>
-                            </div>
-                          )}
+                <div className="mb-4">
+                  <h3 className="text-sm font-semibold mb-2 text-blue-700">🔄 En Curso</h3>
+                  <div className="space-y-1">
+                    {actividadesActivas
+                      .filter(a => a.turno === turnoSeleccionado)
+                      .map((actividad, idx) => (
+                        <div key={`activa-${idx}`} className="text-xs bg-blue-50 p-2 rounded border-l-2 border-blue-400">
+                          <span className="font-medium">{actividad.actividadNombre}</span>
+                          <span className="text-gray-600 ml-2">
+                            ({formatearHora(actividad.horaInicio)}{actividad.estado === 'pausada' ? ' - PAUSADA' : ''})
+                          </span>
                         </div>
                       ))}
-                    </div>
                   </div>
                 </div>
               )}
 
-              {/* Resumen */}
-              <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                <h3 className="text-lg font-semibold mb-2 text-gray-700">📊 Resumen del Turno</h3>
-                <div className="grid grid-cols-3 gap-4 text-center">
-                  <div className="bg-white rounded p-3">
-                    <p className="text-2xl font-bold text-green-600">
-                      {registrosHoy.filter(r => r.turno === turnoSeleccionado && r.estado === 'completada').length}
-                    </p>
-                    <p className="text-sm text-gray-600">Completadas</p>
-                  </div>
-                  <div className="bg-white rounded p-3">
-                    <p className="text-2xl font-bold text-blue-600">
-                      {actividadesActivas.filter(a => a.turno === turnoSeleccionado).length}
-                    </p>
-                    <p className="text-sm text-gray-600">En curso</p>
-                  </div>
-                  <div className="bg-white rounded p-3">
-                    <p className="text-2xl font-bold text-orange-600">
-                      {pendientesParaSiguienteTurno.length}
-                    </p>
-                    <p className="text-sm text-gray-600">Pendientes</p>
+              {/* Pendientes COMPACTO */}
+              {pendientesParaSiguienteTurno.length > 0 && (
+                <div className="mb-4">
+                  <h3 className="text-sm font-semibold mb-2 text-orange-700">📤 Pendientes</h3>
+                  <div className="space-y-2">
+                    {pendientesParaSiguienteTurno.map((pendiente, idx) => (
+                      <div key={`pend-${idx}`} className="bg-orange-50 p-2 rounded border-l-2 border-orange-400">
+                        <div className="text-xs font-bold text-gray-800">{pendiente.titulo}</div>
+                        {pendiente.descripcion && (
+                          <div className="text-xs text-gray-600 mt-1 pl-2 border-l border-gray-300">
+                            {pendiente.descripcion}
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
-                <div className="mt-3 text-center">
-                  <p className="text-sm text-gray-600">
-                    <span className="font-semibold">Tiempo total trabajado:</span> {registrosHoy.reduce((acc, act) => acc + (act.duracionMinutos || 0), 0)} minutos
-                  </p>
-                </div>
-              </div>
+              )}
 
-              <div className="flex justify-end gap-3 pt-4 border-t">
+              <div className="flex justify-end gap-2 pt-3 border-t">
                 <button
                   onClick={() => setMostrarReporte(false)}
-                  className="px-6 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg transition duration-200 font-medium"
+                  className="px-3 py-1 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded text-sm"
                 >
                   Cerrar
                 </button>
                 <button
-                  className="px-6 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition duration-200 font-medium flex items-center gap-2"
+                  className="px-3 py-1 bg-green-500 hover:bg-green-600 text-white rounded text-sm"
                   onClick={() => {
-                    // Generar texto del reporte MEJORADO
                     const actividadesCompletadasTurno = registrosHoy
                       .filter(r => r.turno === turnoSeleccionado && r.estado === 'completada')
                       .filter(r => actividadesPorTurno[turnoSeleccionado].actividades.includes(r.actividadNombre));
                     
                     const textoReporte = `
-📋 REPORTE DE TURNO
-==================
-👤 Operador: ${obtenerNombreFormal()}
-🕐 Turno: ${actividadesPorTurno[turnoSeleccionado]?.nombre} (${actividadesPorTurno[turnoSeleccionado]?.horario})
-📅 Fecha: ${new Date().toLocaleDateString('es-ES')}
-⏰ Hora: ${formatearHora(new Date())}
+📋 REPORTE ${actividadesPorTurno[turnoSeleccionado]?.nombre.toUpperCase()}
+${obtenerNombreFormal()} • ${new Date().toLocaleDateString('es-ES')}
 
-✅ ACTIVIDADES COMPLETADAS:
+✅ COMPLETADAS:
 ${actividadesCompletadasTurno.length > 0 
   ? actividadesCompletadasTurno.map(r => `• ${r.actividadNombre}`).join('\n')
-  : '• No hay actividades completadas del turno actual'
+  : '• Sin actividades completadas'
 }
 
 ${actividadesActivas.filter(a => a.turno === turnoSeleccionado).length > 0 ? `
-🔄 ACTIVIDADES EN CURSO:
+🔄 EN CURSO:
 ${actividadesActivas.filter(a => a.turno === turnoSeleccionado).map(a => `• ${a.actividadNombre}${a.estado === 'pausada' ? ' (PAUSADA)' : ''}`).join('\n')}
 ` : ''}
 
 ${pendientesParaSiguienteTurno.length > 0 ? `
-📤 PENDIENTES PARA SIGUIENTE TURNO:
+📤 PENDIENTES:
 ${pendientesParaSiguienteTurno.map(p => `
 🔸 ${p.titulo}
-   ${p.descripcion ? p.descripcion.split('\n').map(linea => `   ${linea}`).join('\n') : ''}
+${p.descripcion ? `   ${p.descripcion.replace(/\n/g, '\n   ')}` : ''}
 `).join('\n')}` : ''}
-
-📊 RESUMEN:
-• Actividades completadas: ${actividadesCompletadasTurno.length}
-• Actividades en curso: ${actividadesActivas.filter(a => a.turno === turnoSeleccionado).length}
-• Pendientes para siguiente turno: ${pendientesParaSiguienteTurno.length}
-• Tiempo total trabajado: ${registrosHoy.reduce((acc, act) => acc + (act.duracionMinutos || 0), 0)} minutos
                     `.trim();
                     
                     navigator.clipboard.writeText(textoReporte);
                     alert('Reporte copiado al portapapeles');
                   }}
                 >
-                  📋 Copiar Reporte
+                  📋 Copiar
                 </button>
               </div>
             </div>
