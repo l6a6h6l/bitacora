@@ -13,91 +13,6 @@ function DashboardAdmin({ usuario }) {
   const [filtroFechaFin, setFiltroFechaFin] = useState('');
   const [cargando, setCargando] = useState(true);
 
-  // Datos de ejemplo para visualizar el heatmap
-  const generarDatosEjemplo = () => {
-    const hoy = new Date();
-    const ejemplos = [];
-    
-    // Generar actividades para toda la semana
-    for (let dia = 1; dia <= 5; dia++) { // Lunes a Viernes
-      // Turno mañana - Alta carga (9-11 AM)
-      for (let i = 0; i < 4; i++) {
-        const fecha = new Date(hoy);
-        fecha.setDate(fecha.getDate() - (hoy.getDay() - dia));
-        fecha.setHours(9 + Math.floor(i/2), (i % 2) * 30, 0, 0);
-        
-        ejemplos.push({
-          id: `ejemplo-${dia}-mañana-${i}`,
-          usuarioNombre: `Operador ${(i % 3) + 1}`,
-          usuarioEmail: `operador${(i % 3) + 1}@empresa.com`,
-          actividadNombre: ['Correo de carga cobranzas', 'Atención tickets soporte', 'Generación de reportes', 'Revisión de logs'][i],
-          horaInicio: new Date(fecha),
-          horaFin: new Date(fecha.getTime() + (30 + Math.random() * 30) * 60 * 1000),
-          duracionMinutos: 30 + Math.floor(Math.random() * 30),
-          fecha: fecha.toISOString().split('T')[0],
-          estado: 'completada'
-        });
-      }
-      
-      // Turno medio día - Carga media (12-2 PM)
-      for (let i = 0; i < 2; i++) {
-        const fecha = new Date(hoy);
-        fecha.setDate(fecha.getDate() - (hoy.getDay() - dia));
-        fecha.setHours(12 + i, 15, 0, 0);
-        
-        ejemplos.push({
-          id: `ejemplo-${dia}-medio-${i}`,
-          usuarioNombre: `Operador ${i + 2}`,
-          usuarioEmail: `operador${i + 2}@empresa.com`,
-          actividadNombre: ['Informe monitoreo', 'Respuesta correos CAO'][i],
-          horaInicio: new Date(fecha),
-          horaFin: new Date(fecha.getTime() + 45 * 60 * 1000),
-          duracionMinutos: 45,
-          fecha: fecha.toISOString().split('T')[0],
-          estado: 'completada'
-        });
-      }
-      
-      // Turno tarde - Carga normal (3-5 PM)
-      const fechaTarde = new Date(hoy);
-      fechaTarde.setDate(fechaTarde.getDate() - (hoy.getDay() - dia));
-      fechaTarde.setHours(15, 30, 0, 0);
-      
-      ejemplos.push({
-        id: `ejemplo-${dia}-tarde`,
-        usuarioNombre: 'Operador 3',
-        usuarioEmail: 'operador3@empresa.com',
-        actividadNombre: 'Cierre de tickets del día',
-        horaInicio: new Date(fechaTarde),
-        horaFin: new Date(fechaTarde.getTime() + 60 * 60 * 1000),
-        duracionMinutos: 60,
-        fecha: fechaTarde.toISOString().split('T')[0],
-        estado: 'completada'
-      });
-    }
-    
-    // Actividades nocturnas (solo algunos días)
-    [2, 4].forEach(dia => { // Martes y Jueves
-      const fechaNoche = new Date(hoy);
-      fechaNoche.setDate(fechaNoche.getDate() - (hoy.getDay() - dia));
-      fechaNoche.setHours(22, 0, 0, 0);
-      
-      ejemplos.push({
-        id: `ejemplo-${dia}-noche`,
-        usuarioNombre: 'Operador Nocturno',
-        usuarioEmail: 'nocturno@empresa.com',
-        actividadNombre: 'Monitoreo servicios nocturnos',
-        horaInicio: new Date(fechaNoche),
-        horaFin: new Date(fechaNoche.getTime() + 90 * 60 * 1000),
-        duracionMinutos: 90,
-        fecha: fechaNoche.toISOString().split('T')[0],
-        estado: 'completada'
-      });
-    });
-    
-    return ejemplos;
-  };
-
   useEffect(() => {
     // Cargar usuarios
     const qUsuarios = query(collection(db, 'usuarios'), where('rol', '==', 'operador'));
@@ -106,18 +21,7 @@ function DashboardAdmin({ usuario }) {
         id: doc.id,
         ...doc.data()
       }));
-      
-      // Agregar usuarios de ejemplo para los filtros
-      const usuariosEjemplo = [
-        { id: 'ej1', email: 'operador1@empresa.com', nombre: 'Operador 1' },
-        { id: 'ej2', email: 'operador2@empresa.com', nombre: 'Operador 2' },
-        { id: 'ej3', email: 'operador3@empresa.com', nombre: 'Operador 3' },
-        { id: 'ej4', email: 'operador4@empresa.com', nombre: 'Operador 4' },
-        { id: 'ej5', email: 'operador5@empresa.com', nombre: 'Operador 5' },
-        { id: 'ejn', email: 'nocturno@empresa.com', nombre: 'Operador Nocturno' }
-      ];
-      
-      setUsuarios([...usuariosData, ...usuariosEjemplo]);
+      setUsuarios(usuariosData);
     });
 
     // Cargar todos los registros
@@ -134,9 +38,8 @@ function DashboardAdmin({ usuario }) {
         horaFin: doc.data().horaFin ? doc.data().horaFin.toDate() : null
       }));
       
-      // Combinar registros reales con ejemplos para visualización
-      const datosEjemplo = generarDatosEjemplo();
-      setTodosLosRegistros([...registros, ...datosEjemplo]);
+      // Solo usar registros reales (sin ejemplos)
+      setTodosLosRegistros(registros);
       setCargando(false);
     });
 
@@ -315,18 +218,9 @@ function DashboardAdmin({ usuario }) {
                 Visualización de la carga de trabajo por día y hora
               </p>
             </div>
-            <span className="bg-blue-100 text-blue-800 text-xs px-3 py-1 rounded-full">
-              Incluye datos de ejemplo
-            </span>
           </div>
           <div className="overflow-x-auto">
             <div className="min-w-max">
-              {/* Debug - Verificar datos */}
-              <div className="mb-4 p-2 bg-gray-100 rounded text-xs">
-                <p>Total registros: {registrosFiltrados.length}</p>
-                <p>Registros con datos de ejemplo: {registrosFiltrados.filter(r => r.id.includes('ejemplo')).length}</p>
-              </div>
-              
               {/* Header de horas */}
               <div className="flex gap-1 mb-2">
                 <div className="w-12"></div>
@@ -384,14 +278,16 @@ function DashboardAdmin({ usuario }) {
                 </div>
               </div>
               
-              {/* Insights */}
-              <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                <p className="text-sm text-blue-800">
-                  <strong>Análisis:</strong> El mapa muestra alta concentración de trabajo (zonas rojas) 
-                  en horarios específicos, indicando sobrecarga laboral. Las zonas grises muestran 
-                  períodos sin actividad registrada.
-                </p>
-              </div>
+              {/* Mensaje cuando no hay datos */}
+              {registrosFiltrados.length === 0 && (
+                <div className="mt-4 p-4 bg-gray-50 rounded-lg text-center">
+                  <p className="text-gray-600">
+                    No hay actividades registradas para mostrar en el mapa de calor.
+                    <br />
+                    Los operadores pueden empezar a registrar actividades para visualizar la carga de trabajo.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -476,12 +372,7 @@ function DashboardAdmin({ usuario }) {
                       <td className="py-3 px-4">
                         <div>
                           <p className="font-medium">{registro.usuarioNombre}</p>
-                          <p className="text-sm text-gray-500">
-                            {registro.usuarioEmail}
-                            {registro.id.startsWith('ejemplo-') && (
-                              <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Ejemplo</span>
-                            )}
-                          </p>
+                          <p className="text-sm text-gray-500">{registro.usuarioEmail}</p>
                         </div>
                       </td>
                       <td className="py-3 px-4">{registro.actividadNombre}</td>
