@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Clock, Play, Square, Plus, Activity, LogOut, Calendar, Moon, Sun, Sunset, Check, FileText, AlertCircle, Pause, PlayCircle, Send } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../firebase/config';
-import { collection, addDoc, query, where, onSnapshot, updateDoc, doc, orderBy, getDocs } from 'firebase/firestore';
+import { collection, addDoc, query, where, onSnapshot, updateDoc, doc, orderBy } from 'firebase/firestore';
 
 function DashboardOperador({ usuario }) {
   const [turnoSeleccionado, setTurnoSeleccionado] = useState(null);
@@ -22,8 +22,6 @@ function DashboardOperador({ usuario }) {
   const [descripcionValidacion, setDescripcionValidacion] = useState('');
   const [mostrarFormularioActividad, setMostrarFormularioActividad] = useState(null);
   const [descripcionActividadEjecutada, setDescripcionActividadEjecutada] = useState('');
-  const [turnoYaTomado, setTurnoYaTomado] = useState(false);
-
   // Definir actividades por turno
   const actividadesPorTurno = {
     velada: {
@@ -100,28 +98,7 @@ function DashboardOperador({ usuario }) {
     return nombresFormales[usuario.email.toLowerCase()] || usuario.nombre;
   };
 
-  // Verificar si ya tomó un turno hoy
-  const verificarTurnoDelDia = async () => {
-    const hoy = new Date().toISOString().split('T')[0];
-    const qTurnos = query(
-      collection(db, 'registros_actividades'),
-      where('usuarioId', '==', usuario.uid),
-      where('fecha', '==', hoy)
-    );
-    
-    const snapshot = await getDocs(qTurnos);
-    const registrosConTurno = snapshot.docs.filter(doc => doc.data().turno);
-    
-    if (registrosConTurno.length > 0) {
-      const turnoTomado = registrosConTurno[0].data().turno;
-      setTurnoSeleccionado(turnoTomado);
-      setTurnoYaTomado(true);
-    }
-  };
 
-  useEffect(() => {
-    verificarTurnoDelDia();
-  }, [usuario.uid]);
 
   useEffect(() => {
     // Cargar registros del día
@@ -142,10 +119,15 @@ function DashboardOperador({ usuario }) {
       }));
       setRegistrosHoy(registros);
       
-      // Actualizar actividades completadas
+      // Actualizar actividades completadas - extraer solo el nombre base de la actividad
       const completadas = registros
         .filter(r => r.estado === 'completada')
-        .map(r => r.actividadNombre);
+        .map(r => {
+          // Si la actividad tiene formato "nombre: descripción", extraer solo el nombre
+          const nombreCompleto = r.actividadNombre;
+          const colonIndex = nombreCompleto.indexOf(':');
+          return colonIndex > 0 ? nombreCompleto.substring(0, colonIndex).trim() : nombreCompleto;
+        });
       setActividadesCompletadas(completadas);
       
       // Cargar actividades activas (en progreso o pausadas)
@@ -160,7 +142,6 @@ function DashboardOperador({ usuario }) {
 
   const seleccionarTurno = (turno) => {
     setTurnoSeleccionado(turno);
-    setTurnoYaTomado(true);
   };
 
   const iniciarActividad = async (nombreActividad, descripcion = '', dejarPendiente = false) => {
@@ -315,7 +296,6 @@ function DashboardOperador({ usuario }) {
 
   const cambiarTurno = () => {
     setTurnoSeleccionado(null);
-    setTurnoYaTomado(false);
   };
 
   const TurnoIcon = turnoSeleccionado ? actividadesPorTurno[turnoSeleccionado].icono : Activity;
@@ -334,14 +314,12 @@ function DashboardOperador({ usuario }) {
                   <TurnoIcon size={16} />
                   Turno {actividadesPorTurno[turnoSeleccionado].nombre}
                 </span>
-                {!turnoYaTomado && (
-                  <button
-                    onClick={cambiarTurno}
-                    className="text-sm text-blue-600 hover:text-blue-800"
-                  >
-                    Cambiar
-                  </button>
-                )}
+                <button
+                  onClick={cambiarTurno}
+                  className="text-sm text-blue-600 hover:text-blue-800"
+                >
+                  Cambiar
+                </button>
               </div>
             )}
             <button
@@ -359,13 +337,6 @@ function DashboardOperador({ usuario }) {
         {!turnoSeleccionado && (
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <h2 className="text-xl font-semibold mb-4">Selecciona tu turno</h2>
-            {turnoYaTomado && (
-              <div className="bg-yellow-100 border border-yellow-300 rounded-lg p-4 mb-4">
-                <p className="text-yellow-800 text-sm">
-                  ⚠️ Ya has registrado actividades hoy. Solo puedes tomar un turno por día.
-                </p>
-              </div>
-            )}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {Object.entries(actividadesPorTurno).map(([key, turno]) => {
                 const IconoTurno = turno.icono;
@@ -373,12 +344,7 @@ function DashboardOperador({ usuario }) {
                   <button
                     key={key}
                     onClick={() => seleccionarTurno(key)}
-                    disabled={turnoYaTomado}
-                    className={`p-6 border-2 border-gray-200 rounded-lg transition duration-200 ${
-                      turnoYaTomado 
-                        ? 'opacity-50 cursor-not-allowed bg-gray-100' 
-                        : 'hover:border-blue-500 hover:bg-blue-50'
-                    }`}
+                    className="p-6 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition duration-200"
                   >
                     <IconoTurno size={48} className="mx-auto mb-2 text-blue-500" />
                     <h3 className="text-lg font-semibold">{turno.nombre}</h3>
@@ -818,11 +784,22 @@ function DashboardOperador({ usuario }) {
                 <div className="space-y-1">
                   {registrosHoy
                     .filter(r => r.turno === turnoSeleccionado && r.estado === 'completada')
-                    .filter(r => actividadesPorTurno[turnoSeleccionado].actividades.includes(r.actividadNombre))
+                    .filter(r => {
+                      // Extraer el nombre base de la actividad para comparar
+                      const nombreCompleto = r.actividadNombre;
+                      const colonIndex = nombreCompleto.indexOf(':');
+                      const nombreBase = colonIndex > 0 ? nombreCompleto.substring(0, colonIndex).trim() : nombreCompleto;
+                      return actividadesPorTurno[turnoSeleccionado].actividades.includes(nombreBase);
+                    })
                     .length > 0 ? (
                     registrosHoy
                       .filter(r => r.turno === turnoSeleccionado && r.estado === 'completada')
-                      .filter(r => actividadesPorTurno[turnoSeleccionado].actividades.includes(r.actividadNombre))
+                      .filter(r => {
+                        const nombreCompleto = r.actividadNombre;
+                        const colonIndex = nombreCompleto.indexOf(':');
+                        const nombreBase = colonIndex > 0 ? nombreCompleto.substring(0, colonIndex).trim() : nombreCompleto;
+                        return actividadesPorTurno[turnoSeleccionado].actividades.includes(nombreBase);
+                      })
                       .map((registro, idx) => (
                         <div key={`comp-${idx}`} className="text-xs bg-green-50 p-2 rounded border-l-2 border-green-400">
                           <span className="font-medium">{registro.actividadNombre}</span>
@@ -885,7 +862,12 @@ function DashboardOperador({ usuario }) {
                   onClick={() => {
                     const actividadesCompletadasTurno = registrosHoy
                       .filter(r => r.turno === turnoSeleccionado && r.estado === 'completada')
-                      .filter(r => actividadesPorTurno[turnoSeleccionado].actividades.includes(r.actividadNombre));
+                      .filter(r => {
+                        const nombreCompleto = r.actividadNombre;
+                        const colonIndex = nombreCompleto.indexOf(':');
+                        const nombreBase = colonIndex > 0 ? nombreCompleto.substring(0, colonIndex).trim() : nombreCompleto;
+                        return actividadesPorTurno[turnoSeleccionado].actividades.includes(nombreBase);
+                      });
                     
                     const textoReporte = `
 📋 REPORTE ${actividadesPorTurno[turnoSeleccionado]?.nombre.toUpperCase()}
